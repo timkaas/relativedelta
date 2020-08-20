@@ -1,7 +1,7 @@
 relativedelta
 =============
 
-[![GitHub Workflow Status](https://img.shields.io/travis/com/timkaas/relativedelta/master?style=flat-square)](https://github.com/stepancheg/rust-protobuf/actions?query=workflow%3ACI)
+[![Travis Status](https://img.shields.io/travis/com/timkaas/relativedelta/master?style=flat-square)](https://travis-ci.com/github/timkaas/relativedelta)
 [![License](https://img.shields.io/github/license/timkaas/relativedelta?style=flat-square)](https://github.com/timkaas/relativedelta/blob/master/LICENSE)
 
 Extention to the Duration from the the [time](https://github.com/rust-lang-deprecated/time) library, allowing calculating datetimes based on a relative representation of datetime.
