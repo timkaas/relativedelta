@@ -1,0 +1,12 @@
+language: rust
+rust:
+  - 1.0.0
+  - 1.1.0
+  - nightly
+
+jobs:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+cache: cargo

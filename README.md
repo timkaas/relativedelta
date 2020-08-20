@@ -8,17 +8,25 @@ Extention to the Duration from the the [time](https://github.com/rust-lang-depre
 
 ## Usage
 
-Put this in your `Cargo.toml`:
+If you cannot wait until proper crate/first release, put this in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-relativedelta = "0.1"
+relativedelta = {git = "https://github.com/timkaas/relativedelta"}
 ```
 
 Optional features:
 - [`serde`][]: Enable serialization/deserialization via serde.
 
 [`serde`]: https://github.com/serde-rs/serde
+
+In the works:
+- [X] Hook up to [travis.com](https://travis-ci.com/github/timkaas/relativedelta).
+- [ ] Mitigation of month rounding error when init with floats or mul with floats.
+- [ ] Create a proper crate and publish on [crates.io](https://crates.io/).
+- [ ] Documentation and doctest.
+
+Examples:
 
 ```rust
 use relativedelta;
