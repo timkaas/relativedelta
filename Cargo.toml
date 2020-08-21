@@ -1,6 +1,6 @@
 [package]
 name = "relativedelta"
-version = "0.1.0"
+version = "0.2.0"
 readme = "README.md"
 description = """
 Rust implementation of relativedelta known from Python's dateutil library.
@@ -13,20 +13,15 @@ license = "MPL-2.0+"
 homepage = "https://github.com/timkaas/relativedelta/"
 repository = "https://github.com/timkaas/relativedelta/"
 
-
-[badges]
-travis-ci = {repository = "timkaas/relativedelta", branch = "master"}
-codecov = {reposityr = "timkaas/relativedelta", branch = "master", service = "github"}
-
 [lib]
 name = "relativedelta"
 path = "src/lib.rs"
 
 [features]
-serde = ["serde1"]
+serde1 = ["serde"]
 
 [dependencies]
 chrono = { version = "^0.4"}
 impl_ops = "^0.1"
 num-integer = "^0.1"
-serde1 = {package = "serde", version = "1.0", optional = true}
+serde = {version = "1.0", optional = true, features = ["derive"]}

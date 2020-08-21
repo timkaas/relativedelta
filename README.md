@@ -3,112 +3,60 @@ relativedelta
 
 [![Travis Status](https://img.shields.io/travis/com/timkaas/relativedelta/master?style=flat-square)](https://travis-ci.com/github/timkaas/relativedelta)
 [![License](https://img.shields.io/github/license/timkaas/relativedelta?style=flat-square)](https://github.com/timkaas/relativedelta/blob/master/LICENSE)
+[![crates.io](https://img.shields.io/crates/v/relativedelta?style=flat-square)](https://crates.io/crates/relativedelta)
+[![codecov.io](https://img.shields.io/codecov/c/gh/timkaas/relativedelta?style=flat-square)](https://codecov.io/gh/timkaas/relativedelta)
 
-Extention to the Duration from the the [time](https://github.com/rust-lang-deprecated/time) library, allowing calculating datetimes based on a relative representation of datetime.
+Rust implementation of `relativedelta` known from Python's [dateutil](https://pypi.org/project/python-dateutil/) library.
+Extension to the `Duration` from the the [time](https://github.com/rust-lang-deprecated/time) library, which allows for calculating datetimes based on a relative representation of date and time.
 
 ## Usage
 
-If you cannot wait until proper crate/first release, put this in your `Cargo.toml`:
+Put this in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-relativedelta = {git = "https://github.com/timkaas/relativedelta"}
+relativedelta = "0.2"
 ```
 
 Optional features:
-- [`serde`][]: Enable serialization/deserialization via serde.
+- [`serde1`][]: Enable serialization/deserialization via serde.
 
-[`serde`]: https://github.com/serde-rs/serde
+[`serde1`]: https://github.com/serde-rs/serde
 
-In the works:
+In the pipeline:
 - [X] Hook up to [travis.com](https://travis-ci.com/github/timkaas/relativedelta).
 - [ ] Mitigation of month rounding error when init with floats or mul with floats.
-- [ ] Create a proper crate and publish on [crates.io](https://crates.io/).
+- [X] Create a proper crate and publish on [crates.io](https://crates.io/).
 - [ ] Documentation and doctest.
+- [X] Code coverage setup and badge with [travis.com](https://travis-ci.com/github/timkaas/relativedelta) and [codecov.io](https://codecov.io/gh/timkaas/relativedelta)
 
 Examples:
 
 ```rust
-use relativedelta;
+// Construction
+let years1 = RelativeDelta::with_years(1).new();
+let months12 = RelativeDelta::with_months(12).new();
+assert_eq!(years1, months12);
 
-let year = 2020;
-let month = 4;
-let month2 = 3;
-let months = -11;
-let day = 28;
-let days = 31;
-let hour = 12;
-let min = 35;
-let sec = 48;
-let n_secs = -11_111_111_111;
-let dt = Utc.ymd(year, month, day).and_hms(hour, min, sec);
-let ddt = RelativeDeltaDateTime::years(1)
-.with_month(month2)
-.with_months(months)
-.with_days(days)
-.with_nanoseconds(n_secs)
-.new();
+let years1 = RelativeDelta::with_years(1).and_days(32).new();
+// If same parameter is specified twice, only the latest is applied.
+let months6 = RelativeDelta::with_months(12).with_months(6).new();
+assert_eq!(months6, RelativeDelta::with_months(6).new());
+// Below is identical to: RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 3, None, 12).new();
+let rddt = RelativeDelta::with_year(2020).and_years(1).and_month(1).and_months(3).and_days(12).new();
 
-let add_1_year = RelativeDeltaDateTime::years(1).new();
-assert_eq!(dt + add_1_year, Utc.ymd(2021, month, day).and_hms(hour, min, sec));
+// Two or more RelativeDeltas can be added and substracted. However, note that constants are lost in the process.
+let lhs = RelativeDelta::yysmmsdds(Some(2020), -4, Some(1), 3, None, 0).new();
+let rhs = RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 42, None, 0).new();
+assert_eq!(lhs + rhs, RelativeDelta::with_years(-3).and_months(45).new());
+assert_eq!(lhs - rhs, RelativeDelta::with_years(-5).and_months(-39).new());
+assert_eq!(-lhs + rhs, RelativeDelta::with_years(5).and_months(39).new());
 
-let sub_1_year = RelativeDeltaDateTime::years(-1).new();
-assert_eq!(dt + sub_1_year, Utc.ymd(2019, month, day).and_hms(hour, min, sec));
+// The RelativeDelta can be multiplied with a f64.
+assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(2020).and_months(3).and_month(1).new());
 
-let set_year = RelativeDeltaDateTime::year(2010).new();
-assert_eq!(dt + set_year, Utc.ymd(2010, month, day).and_hms(hour, min, sec));
-
-let set_year = RelativeDeltaDateTime::year(-1).new();
-assert_eq!(dt + set_year, Utc.ymd(-1, month, day).and_hms(hour, min, sec));
-
-let add_69_months = RelativeDeltaDateTime::months(69).new();
-// Expected after fix
-assert_eq!(add_69_months.years, 5);
-assert_eq!(add_69_months.months, 9);
-assert_eq!(dt + add_69_months, Utc.ymd(2026, 1, day).and_hms(hour, min, sec));
-
-let sub_6_months = RelativeDeltaDateTime::months(-6).new();
-assert_eq!(dt + sub_6_months, Utc.ymd(2019, 10, day).and_hms(hour, min, sec));
-
-let sub_47_months = RelativeDeltaDateTime::months(-47).new();
-// Expected after fix
-assert_eq!(sub_47_months.years, -3);
-assert_eq!(sub_47_months.months, -11);
-assert_eq!(dt + sub_47_months, Utc.ymd(2016, 5, day).and_hms(hour, min, sec));
-
-let add_400_days = RelativeDeltaDateTime::days(400).new();
-assert_eq!(dt + add_400_days, Utc.ymd(2021, 6, 2).and_hms(hour, min, sec));
-
-let sub_400_days = RelativeDeltaDateTime::days(-400).new();
-assert_eq!(dt + sub_400_days, Utc.ymd(2019, 3, 25).and_hms(hour, min, sec));
-
-let pay1 = RelativeDeltaDateTime::day(1).with_days(-1).with_month(3).with_months(1).new();
-assert_eq!(dt + pay1, Utc.ymd(2020, 3, 31).and_hms(hour, min, sec));
-
-let pay2 = RelativeDeltaDateTime::day(1).with_days(-1).with_month(6).with_months(1).new();
-assert_eq!(dt + pay2, Utc.ymd(2020, 6, 30).and_hms(hour, min, sec));
-
-let pay3 = RelativeDeltaDateTime::day(1).with_days(-1).with_month(9).with_months(1).new();
-assert_eq!(dt + pay3, Utc.ymd(2020, 9, 30).and_hms(hour, min, sec));
-
-let pay4 = RelativeDeltaDateTime::day(1).with_days(-1).with_month(12).with_months(1).new();
-assert_eq!(dt + pay4, Utc.ymd(2020, 12, 31).and_hms(hour, min, sec));
-
-// Multiplication
-
-let ddt = RelativeDeltaDateTime::years(10).and_months(6).and_days(-15).and_hours(23).new();
-let r = ddt * 0.42_f64;
-println!("{:?}", r);
-
-// Init with floats
-let ddt = RelativeDeltaDateTime::ysmsdshsmsssns_f(-0.42, -15.7, -12.3, -5.32, 3.14, 0.15, 22232).new();
-println!("test_init_with_float {:?}", ddt);
-
-let ddt = RelativeDeltaDateTime::ysmsdshsmsssns_f(1.5, -18.0, 0.0, 0.0, 0.0, 0.0, 0).new();
-assert_eq!(
-    ddt,
-    RelativeDeltaDateTime::yysmmsdds(None, 0, None, 0, None, 0)
-        .and_hhsmmssss(None, 0, None, 0, None, 0)
-        .new()
-);
+// This crates party piece is the ability to calculate dates based on already existing chrono::DateTime
+// If one would like to get the last day of the month that one is currently in, it could be done with:
+println!("{}", Utc::now() + RelativeDelta::with_months(1).and_day(1).and_days(-1).new());
+// Above first sets the day of the month to the 1st, then adds a month and subtracts a day.
 ```
