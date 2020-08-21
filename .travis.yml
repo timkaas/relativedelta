@@ -34,6 +34,6 @@ after_success: |
   make &&
   sudo make install &&
   cd ../.. &&
-  kcov --exclude-pattern=/.cargo target/kcov target/debug/relativedelta-* &&
+  kcov --verify --exclude-pattern=/.cargo target/kcov target/debug/relativedelta-* &&
   bash <(curl -s https://codecov.io/bash) &&
   echo "Uploaded code coverage"
