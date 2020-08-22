@@ -161,67 +161,71 @@ impl Builder {
 	}
 
 	// Constants
-	pub fn with_year(self, year: i32) -> Self {
+	pub fn with_year(self, year: Option<i32>) -> Self {
 		Self {
-			year: Some(year),
+			year,
 			..self
 		}
 	}
 
-	pub fn with_month(self, month: u32) -> Self {
-		assert!((1..=12).contains(&month));
+	pub fn with_month(self, month: Option<u32>) -> Self {
 		Self {
-			month: Some(month),
+			month,
 			..self
 		}
 	}
 
-	pub fn with_day(self, day: u32) -> Self {
+	pub fn with_day(self, day: Option<u32>) -> Self {
 		Self {
-			day: Some(day),
+			day,
 			..self
 		}
 	}
 
-	pub fn with_hour(self, hour: u32) -> Self {
+	pub fn with_hour(self, hour: Option<u32>) -> Self {
 		Self {
-			hour: Some(hour),
+			hour,
 			..self
 		}
 	}
 
-	pub fn and_year(&mut self, year: i32) -> &mut Self {
-		self.year = Some(year);
+	pub fn and_year(&mut self, year: Option<i32>) -> &mut Self {
+		self.year = year;
 		self
 	}
 
-	pub fn and_month(&mut self, month: u32) -> &mut Self {
-		self.month = Some(month);
+	pub fn and_month(&mut self, month: Option<u32>) -> &mut Self {
+		self.month = month;
 		self
 	}
 
-	pub fn and_day(&mut self, day: u32) -> &mut Self {
-		self.day = Some(day);
+	pub fn and_day(&mut self, day: Option<u32>) -> &mut Self {
+		self.day = day;
 		self
 	}
 
-	pub fn and_hour(&mut self, hour: u32) -> &mut Self {
-		self.hour = Some(hour);
+	pub fn and_hour(&mut self, hour: Option<u32>) -> &mut Self {
+		self.hour = hour;
 		self
 	}
 
-	pub fn and_minute(&mut self, minute: u32) -> &mut Self {
-		self.minute = Some(minute);
+	pub fn and_minute(&mut self, minute: Option<u32>) -> &mut Self {
+		self.minute = minute;
 		self
 	}
 
-	pub fn and_second(&mut self, second: u32) -> &mut Self {
-		self.second = Some(second);
+	pub fn and_second(&mut self, second: Option<u32>) -> &mut Self {
+		self.second = second;
 		self
 	}
 
-	pub fn and_nanosecond(&mut self, nanosecond: u32) -> &mut Self {
-		self.nanosecond = Some(nanosecond);
+	pub fn and_nanosecond(&mut self, nanosecond: Option<u32>) -> &mut Self {
+		self.nanosecond = nanosecond;
+		self
+	}
+
+	pub fn and_weekday(&mut self, weekday_nth: Option<(chrono::Weekday,i64)>) -> &mut Self {
+		self.weekday = weekday_nth;
 		self
 	}
 
@@ -411,7 +415,7 @@ fn is_f64_zero(v: &f64) -> bool {
 /// assert_eq!(months6, RelativeDelta::with_months(6).new());
 ///
 /// // Below is identical to: RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 3, None, 12).new();
-/// let rddt = RelativeDelta::with_year(2020).and_years(1).and_month(1).and_months(3).and_days(12).new();
+/// let rddt = RelativeDelta::with_year(2020).and_years(1).and_month(Some(1)).and_months(3).and_days(12).new();
 /// ```
 ///
 /// Implemented operators
@@ -428,17 +432,17 @@ fn is_f64_zero(v: &f64) -> bool {
 /// assert_eq!(-lhs + rhs, RelativeDelta::with_years(5).and_months(39).new());
 ///
 /// // The RelativeDelta can be multiplied with a f64.
-/// assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(2020).and_months(3).and_month(1).new());
+/// assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(Some(2020)).and_months(3).and_month(Some(1)).new());
 /// # assert_eq!(rhs * 0.5, 0.5 * rhs);
 ///
 /// // This crates party piece is the ability to calculate dates based on already existing chrono::DateTime
 /// // If one would like to get the last day of the month that one is currently in, it could be done with:
-/// println!("{}", Utc::now() + RelativeDelta::with_months(1).and_day(1).and_days(-1).new());
+/// println!("{}", Utc::now() + RelativeDelta::with_months(1).and_day(Some(1)).and_days(-1).new());
 /// // Above first sets the day of the month to the 1st, then adds a month and subtracts a day.
 ///
 /// // If one were to get all quarters for the current year, one could do so by:
 /// let dt = Utc.ymd(2020, 1, 1).and_hms(0,0,0);
-/// let quarters : Vec<DateTime<Utc>> = (3..=12).step_by(3).map(|month| dt + RelativeDelta::with_day(1).and_month(month).new()).collect();
+/// let quarters : Vec<DateTime<Utc>> = (3..=12).step_by(3).map(|month| dt + RelativeDelta::with_day(1).and_month(Some(month)).new()).collect();
 /// assert_eq!(quarters.len(), 4);
 /// assert_eq!(quarters[0], Utc.ymd(2020, 3, 1).and_hms(0,0,0));
 /// assert_eq!(quarters[1], Utc.ymd(2020, 6, 1).and_hms(0,0,0));
@@ -452,9 +456,9 @@ pub struct RelativeDelta {
 	years: i32,
 	#[cfg_attr(feature = "serde1", serde(skip_serializing_if = "is_i64_zero"), serde(default))]
 	months: i64,
-	#[cfg_attr(feature = "serde1", serde(skip_serializing_if = "is_i64_zero"), serde(default))]
-	months_f: f64,
 	#[cfg_attr(feature = "serde1", serde(skip_serializing_if = "is_f64_zero"), serde(default))]
+	months_f: f64,
+	#[cfg_attr(feature = "serde1", serde(skip_serializing_if = "is_i64_zero"), serde(default))]
 	days: i64,
 	#[cfg_attr(feature = "serde1", serde(skip_serializing_if = "is_i64_zero"), serde(default))]
 	hours: i64,
@@ -529,7 +533,7 @@ impl RelativeDelta {
 	/// Convenience construction of a RelativeDelta (Builder) with only relative years parameter
 	pub fn with_years(years: i32) -> Builder {
 		Builder {
-			years: years,
+			years,
 			..Default::default()
 		}
 	}
@@ -537,7 +541,7 @@ impl RelativeDelta {
 	/// Convenience construction of a RelativeDelta (Builder) with only relative months parameter
 	pub fn with_months(months: i64) -> Builder {
 		Builder {
-			months: months,
+			months,
 			..Default::default()
 		}
 	}
@@ -545,7 +549,7 @@ impl RelativeDelta {
 	/// Convenience construction of a RelativeDelta (Builder) with only relative days parameter
 	pub fn with_days(days: i64) -> Builder {
 		Builder {
-			days: days,
+			days,
 			..Default::default()
 		}
 	}
@@ -553,7 +557,7 @@ impl RelativeDelta {
 	/// Convenience construction of a RelativeDelta (Builder) with only relative hours parameter
 	pub fn with_hours(hours: i64) -> Builder {
 		Builder {
-			hours: hours,
+			hours,
 			..Default::default()
 		}
 	}
@@ -561,7 +565,7 @@ impl RelativeDelta {
 	/// Convenience construction of a RelativeDelta (Builder) with only relative minutes parameter
 	pub fn with_minutes(minutes: i64) -> Builder {
 		Builder {
-			minutes: minutes,
+			minutes,
 			..Default::default()
 		}
 	}
@@ -569,7 +573,7 @@ impl RelativeDelta {
 	/// Convenience construction of a RelativeDelta (Builder) with only relative seconds parameter
 	pub fn with_seconds(seconds: i64) -> Builder {
 		Builder {
-			seconds: seconds,
+			seconds,
 			..Default::default()
 		}
 	}
@@ -577,7 +581,7 @@ impl RelativeDelta {
 	/// Convenience construction of a RelativeDelta (Builder) with only relative nanoseconds parameter
 	pub fn with_nanoseconds(nanoseconds: i64) -> Builder {
 		Builder {
-			nanoseconds: nanoseconds,
+			nanoseconds,
 			..Default::default()
 		}
 	}
@@ -639,6 +643,13 @@ impl RelativeDelta {
 		}
 	}
 
+	pub fn with_weekday(weekday: chrono::Weekday, nth: i64) -> Builder {
+		Builder {
+			weekday: Some((weekday, nth)),
+			..Default::default()
+		}
+	}
+
 	pub fn years(&self) -> i32 {
 		self.years
 	}
@@ -693,6 +704,10 @@ impl RelativeDelta {
 
 	pub fn nanosecond(&self) -> Option<u32> {
 		self.nanosecond
+	}
+
+	pub fn weekday(&self) -> Option<(chrono::Weekday, i64)> {
+		self.weekday
 	}
 
 	/// Calculate total months given the current months and years

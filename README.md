@@ -43,7 +43,7 @@ let years1 = RelativeDelta::with_years(1).and_days(32).new();
 let months6 = RelativeDelta::with_months(12).with_months(6).new();
 assert_eq!(months6, RelativeDelta::with_months(6).new());
 // Below is identical to: RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 3, None, 12).new();
-let rddt = RelativeDelta::with_year(2020).and_years(1).and_month(1).and_months(3).and_days(12).new();
+let rddt = RelativeDelta::with_year(2020).and_years(1).and_month(Some(1)).and_months(3).and_days(12).new();
 
 // Two or more RelativeDeltas can be added and substracted. However, note that constants are lost in the process.
 let lhs = RelativeDelta::yysmmsdds(Some(2020), -4, Some(1), 3, None, 0).new();
@@ -53,10 +53,10 @@ assert_eq!(lhs - rhs, RelativeDelta::with_years(-5).and_months(-39).new());
 assert_eq!(-lhs + rhs, RelativeDelta::with_years(5).and_months(39).new());
 
 // The RelativeDelta can be multiplied with a f64.
-assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(2020).and_months(3).and_month(1).new());
+assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(Some(2020)).and_months(3).and_month(Some(1)).new());
 
 // This crates party piece is the ability to calculate dates based on already existing chrono::DateTime
 // If one would like to get the last day of the month that one is currently in, it could be done with:
-println!("{}", Utc::now() + RelativeDelta::with_months(1).and_day(1).and_days(-1).new());
+println!("{}", Utc::now() + RelativeDelta::with_day(1).and_months(1).and_days(-1).new());
 // Above first sets the day of the month to the 1st, then adds a month and subtracts a day.
 ```

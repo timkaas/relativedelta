@@ -113,28 +113,28 @@ mod tests {
 
 		let pay1 = RelativeDelta::with_day(1)
 				.with_days(-1)
-				.with_month(3)
+				.with_month(Some(3))
 				.with_months(1)
 				.new();
 		assert_eq!(dt + pay1, Utc.ymd(2020, 3, 31).and_hms(hour, min, sec));
 
 		let pay2 = RelativeDelta::with_day(1)
 				.with_days(-1)
-				.with_month(6)
+				.with_month(Some(6))
 				.with_months(1)
 				.new();
 		assert_eq!(dt + pay2, Utc.ymd(2020, 6, 30).and_hms(hour, min, sec));
 
 		let pay3 = RelativeDelta::with_day(1)
 				.with_days(-1)
-				.with_month(9)
+				.with_month(Some(9))
 				.with_months(1)
 				.new();
 		assert_eq!(dt + pay3, Utc.ymd(2020, 9, 30).and_hms(hour, min, sec));
 
 		let pay4 = RelativeDelta::with_day(1)
 				.with_days(-1)
-				.with_month(12)
+				.with_month(Some(12))
 				.with_months(1)
 				.new();
 		assert_eq!(dt + pay4, Utc.ymd(2020, 12, 31).and_hms(hour, min, sec));
@@ -154,7 +154,7 @@ mod tests {
 		assert_eq!(r, RelativeDelta::yysmmsdds(None, 5, None, 3, None, -7).and_minutes(-30).new());
 
 		let rhs = RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 42, None, 0).new();
-		assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(2020).and_months(3).and_month(1).new());
+		assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(Some(2020)).and_months(3).and_month(Some(1)).new());
 	}
 
 	#[test]
