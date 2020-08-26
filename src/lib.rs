@@ -20,7 +20,7 @@ pub use crate::relativedelta::RelativeDelta;
 #[cfg(test)]
 mod tests {
 	use crate::relativedelta::RelativeDelta;
-	use chrono::{TimeZone, Utc};
+	use chrono::{TimeZone, Utc, Weekday};
 
 	#[test]
 	fn test_add_self() {
@@ -110,6 +110,9 @@ mod tests {
 			dt + sub_400_days,
 			Utc.ymd(2019, 3, 25).and_hms(hour, min, sec)
 		);
+
+		let monday = RelativeDelta::with_years(1).and_weekday(Some((Weekday::Mon, 1))).new();
+		print!("{}", dt + monday);
 
 		let pay1 = RelativeDelta::with_day(1)
 				.with_days(-1)

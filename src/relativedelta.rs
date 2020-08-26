@@ -39,6 +39,7 @@ impl Builder {
 	/// Construct new RelativeDelta
 	///
 	/// Returns a fixed RelativeDelta where time parameters are within meaningfull boundaries.
+	#[inline]
 	pub fn new(&self) -> RelativeDelta {
 		let mut ddt = RelativeDelta {
 			years: self.years,
@@ -62,6 +63,7 @@ impl Builder {
 		ddt
 	}
 
+	#[inline]
 	pub fn and_yysmmsdds(&mut self, year: Option<i32>, years: i32, month: Option<u32>, months: i64, day: Option<u32>, days: i64) -> &mut Self {
 		self.year = year;
 		self.years = years;
@@ -72,6 +74,7 @@ impl Builder {
 		self
 	}
 
+	#[inline]
 	pub fn and_hhsmmssss(&mut self, hour: Option<u32>, hours: i64, minute: Option<u32>, minutes: i64, second: Option<u32>, seconds: i64) -> &mut Self {
 		self.hour = hour;
 		self.hours = hours;
@@ -83,105 +86,124 @@ impl Builder {
 	}
 
 	// Relatives
-	pub fn with_years(self, years: i32) -> Self {
-		Self { years, ..self }
+	/// Clone the builder and set years
+	#[inline]
+	pub fn with_years(&self, years: i32) -> Self {
+		Self { years, ..*self }
 	}
 
-	pub fn with_months(self, months: i64) -> Self {
-		Self {
-			months: months,
-			..self
-		}
+	/// Clone the builder and set months
+	#[inline]
+	pub fn with_months(&self, months: i64) -> Self {
+		Self { months, ..*self }
 	}
 
-	pub fn with_days(self, days: i64) -> Self {
-		Self { days: days, ..self }
+	/// Clone the builder and set days
+	#[inline]
+	pub fn with_days(&self, days: i64) -> Self {
+		Self { days, ..*self }
 	}
 
-	pub fn with_hours(self, hours: i64) -> Self {
-		Self {
-			hours: hours,
-			..self
-		}
+	/// Clone the builder and set hours
+	#[inline]
+	pub fn with_hours(&self, hours: i64) -> Self {
+		Self { hours, ..*self }
 	}
 
-	pub fn with_minutes(self, minutes: i64) -> Self {
-		Self {
-			minutes: minutes,
-			..self
-		}
+	/// Clone the builder and set minutes
+	#[inline]
+	pub fn with_minutes(&self, minutes: i64) -> Self {
+		Self { minutes, ..*self }
 	}
 
-	pub fn with_nanoseconds(self, nanoseconds: i64) -> Self {
-		Self {
-			nanoseconds: nanoseconds,
-			..self
-		}
+	/// Clone the builder and set nanoseconds
+	#[inline]
+	pub fn with_nanoseconds(&self, nanoseconds: i64) -> Self {
+		Self { nanoseconds, ..*self }
 	}
 
 	// mut Relatives
+	/// Set years on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_years(&mut self, years: i32) -> &mut Self {
 		self.years = years;
 		self
 	}
 
+	/// Set months on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_months(&mut self, months: i64) -> &mut Self {
 		self.months = months;
 		self
 	}
 
+	/// Set month floating part on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_months_f(&mut self, months_f: f64) -> &mut Self {
 		self.months_f = months_f;
 		self
 	}
 
+	/// Set days on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_days(&mut self, days: i64) -> &mut Self {
 		self.days = days;
 		self
 	}
 
+	/// Set hours on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_hours(&mut self, hours: i64) -> &mut Self {
 		self.hours = hours;
 		self
 	}
 
+	/// Set minutes on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_minutes(&mut self, minutes: i64) -> &mut Self {
 		self.minutes = minutes;
 		self
 	}
 
+	/// Set seconds on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_seconds(&mut self, seconds: i64) -> &mut Self {
 		self.seconds = seconds;
 		self
 	}
 
+	/// Set nanoseconds on mutable ref and return itself for further chaining
+	#[inline]
 	pub fn and_nanoseconds(&mut self, nanoseconds: i64) -> &mut Self {
 		self.nanoseconds = nanoseconds;
 		self
 	}
 
 	// Constants
+	/// Clone the builder and set an optional year
+	/// If year is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes year and not overwrite it
+	#[inline]
 	pub fn with_year(self, year: Option<i32>) -> Self {
-		Self {
-			year,
-			..self
-		}
+		Self { year, ..self }
 	}
 
+	/// Clone the builder and set an optional month
+	/// If month is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes month and not overwrite it
+	#[inline]
 	pub fn with_month(self, month: Option<u32>) -> Self {
-		Self {
-			month,
-			..self
-		}
+		Self { month, ..self }
 	}
 
+	/// Clone the builder and set an optional day
+	/// If day is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes day and not overwrite it
+	#[inline]
 	pub fn with_day(self, day: Option<u32>) -> Self {
-		Self {
-			day,
-			..self
-		}
+		Self { day, ..self }
 	}
 
+	/// Clone the builder and set an optional hour
+	/// If hour is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes hour and not overwrite it
+	#[inline]
 	pub fn with_hour(self, hour: Option<u32>) -> Self {
 		Self {
 			hour,
@@ -189,46 +211,71 @@ impl Builder {
 		}
 	}
 
+	/// Set year on mutable ref and return itself for further chaining
+	/// If year is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes year and not overwrite it
+	#[inline]
 	pub fn and_year(&mut self, year: Option<i32>) -> &mut Self {
 		self.year = year;
 		self
 	}
 
+	/// Set month on mutable ref and return itself for further chaining
+	/// If month is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes month and not overwrite it
+	#[inline]
 	pub fn and_month(&mut self, month: Option<u32>) -> &mut Self {
 		self.month = month;
 		self
 	}
 
+	/// Set day on mutable ref and return itself for further chaining
+	/// If day is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes day and not overwrite it
+	#[inline]
 	pub fn and_day(&mut self, day: Option<u32>) -> &mut Self {
 		self.day = day;
 		self
 	}
 
+	/// Set hour on mutable ref and return itself for further chaining
+	/// If hour is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes hour and not overwrite it
+	#[inline]
 	pub fn and_hour(&mut self, hour: Option<u32>) -> &mut Self {
 		self.hour = hour;
 		self
 	}
 
+	/// Set minute on mutable ref and return itself for further chaining
+	/// If minute is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes minute and not overwrite it
+	#[inline]
 	pub fn and_minute(&mut self, minute: Option<u32>) -> &mut Self {
 		self.minute = minute;
 		self
 	}
 
+	/// Set second on mutable ref and return itself for further chaining
+	/// If second is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes second and not overwrite it
+	#[inline]
 	pub fn and_second(&mut self, second: Option<u32>) -> &mut Self {
 		self.second = second;
 		self
 	}
 
+	/// Set nanosecond on mutable ref and return itself for further chaining
+	/// If nanosecond is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes nanosecond and not overwrite it
+	#[inline]
 	pub fn and_nanosecond(&mut self, nanosecond: Option<u32>) -> &mut Self {
 		self.nanosecond = nanosecond;
 		self
 	}
 
+	/// Set weekday on mutable ref and return itself for further chaining
+	/// If weekday is set to None, addition with e.g. chrono::DateTime will just keep the DateTimes weekday and not overwrite it
+	#[inline]
 	pub fn and_weekday(&mut self, weekday_nth: Option<(chrono::Weekday,i64)>) -> &mut Self {
 		self.weekday = weekday_nth;
 		self
 	}
 
+	#[inline]
 	fn fix(ddt: &mut RelativeDelta) {
 		assert!(
 			ddt.month.map_or(true, |m| (1..=12).contains(&m)),
@@ -317,7 +364,7 @@ impl Builder {
 		let months_f = (years_total - years) * 12_f64;
 		let months_total = months_f + months;
 		let months = months_total.trunc();
-		let months_f = months_total - months;
+		let months_remainder = months_total - months;
 		// Unfortunately we might loose some days here, as we do not know the number of days in a relative month
 
 		let days_total = days;
@@ -342,7 +389,7 @@ impl Builder {
 		Self {
 			years: years as i32,
 			months: months as i64,
-			months_f,
+			months_f: months_remainder,
 			days: days as i64,
 			hours: hours as i64,
 			minutes: minutes as i64,
@@ -420,7 +467,7 @@ fn is_f64_zero(v: &f64) -> bool {
 ///
 /// Implemented operators
 /// ```edition2018
-/// # use chrono::{Utc, TimeZone, Datelike, DateTime};
+/// # use chrono::{Utc, TimeZone, Datelike, DateTime, Weekday};
 /// # use relativedelta::RelativeDelta;
 ///
 /// // Two or more RelativeDeltas can be added and substracted. However, note that constants are lost in the process.
@@ -448,6 +495,11 @@ fn is_f64_zero(v: &f64) -> bool {
 /// assert_eq!(quarters[1], Utc.ymd(2020, 6, 1).and_hms(0,0,0));
 /// assert_eq!(quarters[2], Utc.ymd(2020, 9, 1).and_hms(0,0,0));
 /// assert_eq!(quarters[3], Utc.ymd(2020, 12, 1).and_hms(0,0,0));
+///
+/// // One could also request the first monday after one year by
+/// let first_monday_after_one_year = RelativeDelta::with_years(1).and_weekday(Some((Weekday::Mon, 1))).new();
+/// let d = dt + first_monday_after_one_year;
+/// assert_eq!(d, Utc.ymd(2021, 1, 4).and_hms(0,0,0));
 /// ```
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
@@ -493,6 +545,7 @@ impl RelativeDelta {
 	///
 	/// Takes only relative date and time parameters, years, months, days, hours, minutes, seconds and nanoseconds
 	/// Parameters will be normalized to ints wherever possible
+	#[inline]
 	pub fn ysmsdshsmsssns_f(
 		years: f64,
 		months: f64,
@@ -506,6 +559,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only date parameters
+	#[inline]
 	pub fn yysmmsdds(
 		year: Option<i32>,
 		years: i32,
@@ -518,6 +572,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only time parameters
+	#[inline]
 	pub fn hhsmmssss(
 		hour: Option<u32>,
 		hours: i64,
@@ -531,6 +586,7 @@ impl RelativeDelta {
 
 	// Relatives
 	/// Convenience construction of a RelativeDelta (Builder) with only relative years parameter
+	#[inline]
 	pub fn with_years(years: i32) -> Builder {
 		Builder {
 			years,
@@ -539,6 +595,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only relative months parameter
+	#[inline]
 	pub fn with_months(months: i64) -> Builder {
 		Builder {
 			months,
@@ -547,6 +604,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only relative days parameter
+	#[inline]
 	pub fn with_days(days: i64) -> Builder {
 		Builder {
 			days,
@@ -555,6 +613,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only relative hours parameter
+	#[inline]
 	pub fn with_hours(hours: i64) -> Builder {
 		Builder {
 			hours,
@@ -563,6 +622,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only relative minutes parameter
+	#[inline]
 	pub fn with_minutes(minutes: i64) -> Builder {
 		Builder {
 			minutes,
@@ -571,6 +631,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only relative seconds parameter
+	#[inline]
 	pub fn with_seconds(seconds: i64) -> Builder {
 		Builder {
 			seconds,
@@ -579,6 +640,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only relative nanoseconds parameter
+	#[inline]
 	pub fn with_nanoseconds(nanoseconds: i64) -> Builder {
 		Builder {
 			nanoseconds,
@@ -588,6 +650,7 @@ impl RelativeDelta {
 
 	// Constants
 	/// Convenience construction of a RelativeDelta (Builder) with only constant year parameter
+	#[inline]
 	pub fn with_year(year: i32) -> Builder {
 		Builder {
 			year: Some(year),
@@ -596,6 +659,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only constant month parameter
+	#[inline]
 	pub fn with_month(month: u32) -> Builder {
 		Builder {
 			month: Some(month),
@@ -604,6 +668,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only constant day parameter
+	#[inline]
 	pub fn with_day(day: u32) -> Builder {
 		Builder {
 			day: Some(day),
@@ -612,6 +677,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only constant hour parameter
+	#[inline]
 	pub fn with_hour(hour: u32) -> Builder {
 		Builder {
 			hour: Some(hour),
@@ -620,6 +686,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only constant minute parameter
+	#[inline]
 	pub fn with_minute(minute: u32) -> Builder {
 		Builder {
 			minute: Some(minute),
@@ -628,6 +695,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only constant second parameter
+	#[inline]
 	pub fn with_second(second: u32) -> Builder {
 		Builder {
 			second: Some(second),
@@ -636,6 +704,7 @@ impl RelativeDelta {
 	}
 
 	/// Convenience construction of a RelativeDelta (Builder) with only constant nanosecond parameter
+	#[inline]
 	pub fn with_nanosecond(nanosecond: u32) -> Builder {
 		Builder {
 			nanosecond: Some(nanosecond),
@@ -643,6 +712,7 @@ impl RelativeDelta {
 		}
 	}
 
+	#[inline]
 	pub fn with_weekday(weekday: chrono::Weekday, nth: i64) -> Builder {
 		Builder {
 			weekday: Some((weekday, nth)),
@@ -650,67 +720,83 @@ impl RelativeDelta {
 		}
 	}
 
+	#[inline]
 	pub fn years(&self) -> i32 {
 		self.years
 	}
 
+	#[inline]
 	pub fn year(&self) -> Option<i32> {
 		self.year
 	}
 
+	#[inline]
 	pub fn months(&self) -> i64 {
 		self.months
 	}
 
+	#[inline]
 	pub fn month(&self) -> Option<u32> {
 		self.month
 	}
 
+	#[inline]
 	pub fn days(&self) -> i64 {
 		self.days
 	}
 
+	#[inline]
 	pub fn day(&self) -> Option<u32> {
 		self.day
 	}
 
+	#[inline]
 	pub fn hours(&self) -> i64 {
 		self.hours
 	}
 
+	#[inline]
 	pub fn hour(&self) -> Option<u32> {
 		self.hour
 	}
 
+	#[inline]
 	pub fn minutes(&self) -> i64 {
 		self.minutes
 	}
 
+	#[inline]
 	pub fn minute(&self) -> Option<u32> {
 		self.minute
 	}
 
+	#[inline]
 	pub fn seconds(&self) -> i64 {
 		self.seconds
 	}
 
+	#[inline]
 	pub fn second(&self) -> Option<u32> {
 		self.second
 	}
 
+	#[inline]
 	pub fn nanoseconds(&self) -> i64 {
 		self.nanoseconds
 	}
 
+	#[inline]
 	pub fn nanosecond(&self) -> Option<u32> {
 		self.nanosecond
 	}
 
+	#[inline]
 	pub fn weekday(&self) -> Option<(chrono::Weekday, i64)> {
 		self.weekday
 	}
 
 	/// Calculate total months given the current months and years
+	#[inline]
 	pub fn total_months(&self) -> i64 {
 		(self.years as i64) * 12 + self.months
 	}
@@ -778,35 +864,33 @@ impl<Tz: chrono::TimeZone> Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 		let minute = self.minute.unwrap_or(rhs.minute());
 		let second = self.second.unwrap_or(rhs.second());
 		let nanosecond = self.nanosecond.unwrap_or(rhs.nanosecond());
-		let td = rhs
+		let datetime = rhs
 				.timezone()
 				.ymd(year, real_month, day)
 				.and_hms_nano(hour, minute, second, nanosecond);
-		let ret = td
+		let ret = datetime
 				+ chrono::Duration::days(self.days)
 				+ chrono::Duration::hours(self.hours)
 				+ chrono::Duration::minutes(self.minutes)
 				+ chrono::Duration::seconds(self.seconds)
 				+ chrono::Duration::nanoseconds(self.nanoseconds);
 
-		if self.weekday.is_none() {
-			return ret;
+		if let Some((weekday, nth)) = self.weekday {
+			let mut jumpdays = (nth.abs() - 1) * 7;
+			if nth > 0 {
+				jumpdays += (7 - ret.weekday().num_days_from_monday()
+						+ weekday.num_days_from_monday()) as i64;
+			} else {
+				jumpdays += ((ret.weekday().num_days_from_monday()
+						- weekday.num_days_from_monday())
+						% 7) as i64;
+				jumpdays *= -1;
+			}
+			ret + chrono::Duration::days(jumpdays)
 		}
-
-		let t = self.weekday.unwrap();
-		let weekday = t.0;
-		let nth = t.1;
-		let mut jumpdays = (nth.abs() - 1) * 7;
-		if nth > 0 {
-			jumpdays += (7 - ret.weekday().num_days_from_monday()
-					+ weekday.num_days_from_monday()) as i64;
-		} else {
-			jumpdays += ((ret.weekday().num_days_from_monday()
-					- weekday.num_days_from_monday())
-					% 7) as i64;
-			jumpdays *= -1;
+		else {
+			ret
 		}
-		ret + chrono::Duration::days(jumpdays)
 	}
 }
 
@@ -865,6 +949,91 @@ impl<Tz: chrono::TimeZone> Add<RelativeDelta> for chrono::DateTime<Tz> {
 		rhs + self
 	}
 }
+
+// Convenient add for builder (experimental)
+/*
+impl<Tz: chrono::TimeZone> Add<&chrono::DateTime<Tz>> for &Builder {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: &chrono::DateTime<Tz>) -> Self::Output {
+		self.new() + rhs
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<&chrono::DateTime<Tz>> for Builder {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: &chrono::DateTime<Tz>) -> Self::Output {
+		&self + rhs
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<chrono::DateTime<Tz>> for &Builder {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: chrono::DateTime<Tz>) -> Self::Output {
+		self + &rhs
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<chrono::DateTime<Tz>> for &mut Builder {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: chrono::DateTime<Tz>) -> Self::Output {
+		let s: &Builder = self;
+		s + &rhs
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<chrono::DateTime<Tz>> for Builder {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: chrono::DateTime<Tz>) -> Self::Output {
+		&self + &rhs
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<&Builder> for &chrono::DateTime<Tz> {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: &Builder) -> Self::Output {
+		rhs + self
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<Builder> for &chrono::DateTime<Tz> {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: Builder) -> Self::Output {
+		rhs + self
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<&Builder> for chrono::DateTime<Tz> {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: &Builder) -> Self::Output {
+		rhs + self
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<&mut Builder> for chrono::DateTime<Tz> {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: &mut Builder) -> Self::Output {
+		rhs + self
+	}
+}
+
+impl<Tz: chrono::TimeZone> Add<Builder> for chrono::DateTime<Tz> {
+	type Output = chrono::DateTime<Tz>;
+
+	fn add(self, rhs: Builder) -> Self::Output {
+		rhs + self
+	}
+}
+*/
+
 
 /// Sub (non commutative)
 
