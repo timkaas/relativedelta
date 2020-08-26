@@ -59,4 +59,9 @@ assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(Some(2020)).and_mont
 // If one would like to get the last day of the month that one is currently in, it could be done with:
 println!("{}", Utc::now() + RelativeDelta::with_day(1).and_months(1).and_days(-1).new());
 // Above first sets the day of the month to the 1st, then adds a month and subtracts a day.
+
+// One could also request the first monday after one year by
+let first_monday_after_one_year = RelativeDelta::with_years(1).and_weekday(Some((Weekday::Mon, 1))).new();
+let d = dt + first_monday_after_one_year;
+assert_eq!(d, Utc.ymd(2021, 1, 4).and_hms(0,0,0));
 ```
