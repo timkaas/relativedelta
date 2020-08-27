@@ -18,7 +18,7 @@ Put this in your `Cargo.toml`:
 relativedelta = "0.2"
 ```
 
-Optional features:
+### Optional features
 - [`serde1`][]: Enable serialization/deserialization via serde.
 
 [`serde1`]: https://github.com/serde-rs/serde
@@ -30,7 +30,21 @@ In the pipeline:
 - [ ] Documentation and doctest.
 - [X] Code coverage setup and badge with [travis.com](https://travis-ci.com/github/timkaas/relativedelta) and [codecov.io](https://codecov.io/gh/timkaas/relativedelta)
 
-Examples:
+## Overview
+
+The `RelativeDelta` datatype holds both relative and absolute values for year, month, day, hour, minute, seconds and nanosecond.
+
+Relative parts are manipulated and accessed through methods typically ending in "s" (e.g. `::with_years`, `.and_days`). Absolute values without "s". 
+
+All relative values represents an offset to date and time and therefore can take on both positive and negative values, and can take on any value within its datatypes limitations. On creation, the `Builder` will attempt to aggregate values up, so e.g. if hours are not in the range \[-23;23]\, the datatype will be updated to instead add or subtract extra days, with only the remainder as hours. 
+All offsets are set to zero as default. 
+
+Absolute values represents explicit years, months, days and so on. So if one e.g. always seeks a certain day in the month, one would use the `::with_month`  or `.and_month`method. All absolute values are Options and set to `None` as default.    
+
+`RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to e.g. ask for the second tuesday one year from today, with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Some(Weekday::Tue, 2)).new()`.
+
+
+### Examples
 
 ```rust
 // Construction
@@ -62,6 +76,6 @@ println!("{}", Utc::now() + RelativeDelta::with_day(1).and_months(1).and_days(-1
 
 // One could also request the first monday after one year by
 let first_monday_after_one_year = RelativeDelta::with_years(1).and_weekday(Some((Weekday::Mon, 1))).new();
-let d = dt + first_monday_after_one_year;
+let d = Utc.ymd(2020, 1, 1).and_hms(0,0,0) + first_monday_after_one_year;
 assert_eq!(d, Utc.ymd(2021, 1, 4).and_hms(0,0,0));
 ```
