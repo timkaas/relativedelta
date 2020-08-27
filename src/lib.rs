@@ -33,7 +33,7 @@
 //! All offsets are set to zero as default.
 //!
 //! Absolute values represents explicit years, months, days and so on. So if one e.g. always seeks a certain day in the
-//! month, one would use the `::with_month`  or `.and_month`method. All absolute values are Options and set to `None` as
+//! month, one would use the `::with_month` or `.and_month` method. All absolute values are Options and set to `None` as
 //! default.
 //!
 //! `RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to

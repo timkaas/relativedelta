@@ -39,7 +39,7 @@ Relative parts are manipulated and accessed through methods typically ending in 
 All relative values represents an offset to date and time and therefore can take on both positive and negative values, and can take on any value within its datatypes limitations. On creation, the `Builder` will attempt to aggregate values up, so e.g. if hours are not in the range \[-23;23]\, the datatype will be updated to instead add or subtract extra days, with only the remainder as hours. 
 All offsets are set to zero as default. 
 
-Absolute values represents explicit years, months, days and so on. So if one e.g. always seeks a certain day in the month, one would use the `::with_month`  or `.and_month`method. All absolute values are Options and set to `None` as default.    
+Absolute values represents explicit years, months, days and so on. So if one e.g. always seeks a certain day in the month, one would use the `::with_month` or `.and_month` method. All absolute values are Options and set to `None` as default.    
 
 `RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to e.g. ask for the second tuesday one year from today, with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Some(Weekday::Tue, 2)).new()`.
 
