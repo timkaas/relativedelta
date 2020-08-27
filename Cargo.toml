@@ -1,12 +1,12 @@
 [package]
 name = "relativedelta"
-version = "0.2.1"
+version = "0.2.2"
 readme = "README.md"
 description = """
 Rust implementation of relativedelta known from Python's dateutil library.
 An extension to Duration in the chrono library to deal with relative dates.
 """
-keywords = ["date", "time", "relative", "deltatime", "calendar"]
+keywords = ["date", "time", "relative", "deltatime", "calendar", "chrono"]
 authors = ["Tim Gorm Kaas-Rasmussen Olsen <timgormkaas@gmail.com>"]
 edition = "2018"
 license = "MPL-2.0+"
