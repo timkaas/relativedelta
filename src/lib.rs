@@ -13,7 +13,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! relativedelta = "0.1"
+//! relativedelta = "0.2"
 //! ```
 
 #[macro_use] extern crate impl_ops;
