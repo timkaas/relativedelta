@@ -4,6 +4,7 @@ relativedelta
 [![Travis Status](https://img.shields.io/travis/com/timkaas/relativedelta/master?style=flat-square)](https://travis-ci.com/github/timkaas/relativedelta)
 [![License](https://img.shields.io/github/license/timkaas/relativedelta?style=flat-square)](https://github.com/timkaas/relativedelta/blob/master/LICENSE)
 [![crates.io](https://img.shields.io/crates/v/relativedelta?style=flat-square)](https://crates.io/crates/relativedelta)
+[![docs.rs](https://img.shields.io/badge/documentation-docs.rs-orange.svg?style=flat-square)](https://docs.rs/relativedelta/0.2.2/relativedelta/)
 [![codecov.io](https://img.shields.io/codecov/c/gh/timkaas/relativedelta?style=flat-square)](https://codecov.io/gh/timkaas/relativedelta)
 
 Rust implementation of `relativedelta` known from Python's [dateutil](https://pypi.org/project/python-dateutil/) library.
