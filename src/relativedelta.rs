@@ -6,6 +6,7 @@ use std::ops;
 use std::ops::Add;
 use chrono::{Datelike, Timelike};
 use num_integer::Integer;
+use num_traits::Zero;
 
 #[cfg(feature = "serde1")]
 extern crate serde;
@@ -803,6 +804,16 @@ impl RelativeDelta {
 	#[inline]
 	pub fn total_months(&self) -> i64 {
 		(self.years as i64) * 12 + self.months
+	}
+
+	#[inline]
+	pub fn is_empty(&self) -> bool {
+		self.year == None
+				&& [self.month, self.day, self.hour, self.minute, self.second, self.nanosecond].iter().all(|t| t == &None)
+				&& self.years == 0
+				&& [self.months, self.days, self.hours, self.minutes, self.seconds, self.nanoseconds].iter().all(|t|t == &0)
+				&& self.months_f.is_zero()
+				&& self.weekday == None
 	}
 }
 

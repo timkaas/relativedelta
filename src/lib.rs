@@ -240,4 +240,10 @@ mod tests {
 		let r = RelativeDelta::with_years(-1).and_months(-8).and_months_f( -0.7399999999999984).and_days(-12).and_hours(-12).and_minutes(-28).and_seconds(-3).and_nanoseconds(-449977768).new();
 		assert_eq!(ddt, r);
 	}
+
+	#[test]
+	fn test_is_empty() {
+		let empty = RelativeDelta::default();
+		assert!(empty.is_empty())
+	}
 }

@@ -5,7 +5,6 @@ relativedelta
 [![License](https://img.shields.io/github/license/timkaas/relativedelta?style=flat-square)](https://github.com/timkaas/relativedelta/blob/master/LICENSE)
 [![crates.io](https://img.shields.io/crates/v/relativedelta?style=flat-square)](https://crates.io/crates/relativedelta)
 [![docs.rs](https://img.shields.io/badge/documentation-docs.rs-orange.svg?style=flat-square)](https://docs.rs/relativedelta/0.2.2/relativedelta/)
-[![codecov.io](https://img.shields.io/codecov/c/gh/timkaas/relativedelta?style=flat-square)](https://codecov.io/gh/timkaas/relativedelta)
 
 Rust implementation of `relativedelta` known from Python's [dateutil](https://pypi.org/project/python-dateutil/) library.
 Extension to the `Duration` from the the [time](https://github.com/rust-lang-deprecated/time) library, which allows for calculating datetimes based on a relative representation of date and time.
@@ -28,8 +27,8 @@ In the pipeline:
 - [X] Hook up to [travis.com](https://travis-ci.com/github/timkaas/relativedelta).
 - [ ] Mitigation of month rounding error when init with floats or mul with floats.
 - [X] Create a proper crate and publish on [crates.io](https://crates.io/).
-- [ ] Documentation and doctest.
-- [X] Code coverage setup and badge with [travis.com](https://travis-ci.com/github/timkaas/relativedelta) and [codecov.io](https://codecov.io/gh/timkaas/relativedelta)
+- [X] Documentation and doctest.
+- [ ] Improve examples
 
 ## Overview
 
