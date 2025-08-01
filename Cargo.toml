@@ -17,6 +17,9 @@ repository = "https://github.com/timkaas/relativedelta/"
 name = "relativedelta"
 path = "src/lib.rs"
 
+[features]
+serde = ["dep:serde", "chrono/serde"]
+
 [dependencies]
 chrono = { version = "^0.4" }
 impl_ops = "^0.1"
