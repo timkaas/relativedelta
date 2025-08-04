@@ -1,6 +1,6 @@
 [package]
 name = "relativedelta"
-version = "0.3.0"
+version = "0.0.0-replace-me"
 readme = "README.md"
 description = """
 Rust implementation of relativedelta known from Python's dateutil library.
