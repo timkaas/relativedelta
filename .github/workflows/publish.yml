@@ -91,6 +91,8 @@ jobs:
       - name: cargo release publish
         run: |-
           TAG=${{ github.event.release.tag_name }}
-          echo "VERSION=${TAG#v}" >> $GITHUB_ENV
+          echo "Publishing version $TAG"
+          VERSION=${TAG#v}
+          echo "Version is $VERSION"
           sed -i "s/0.0.0-replace-me/$VERSION/g" Cargo.toml
           cargo publish --all-features --allow-dirty --dry-run
