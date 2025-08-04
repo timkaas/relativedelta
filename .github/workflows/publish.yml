@@ -73,9 +73,6 @@ jobs:
           path: ~/.cargo/bin/cargo-release
           key: ${{ runner.os }}-cargo-release
 
-      - run: cargo install cargo-release
-        if: steps.cargo_release_cache_restore.outputs.cache-hit != 'true'
-
       - name: cargo-release cache save
         id: cargo_release_cache_save
         uses: actions/cache/save@v4
@@ -90,7 +87,7 @@ jobs:
 
       - name: cargo release publish
         run: |-
-          TAG=${{ github.event.release.tag_name }}
+          TAG=${{ github.ref_name }}
           echo "Publishing version $TAG"
           VERSION=${TAG#v}
           echo "Version is $VERSION"
