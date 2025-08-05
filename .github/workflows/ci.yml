@@ -1,4 +1,4 @@
-name: Check, List & Test
+name: Check, Lint & Test
 
 on:
   push:
