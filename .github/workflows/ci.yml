@@ -1,0 +1,96 @@
+name: Check, List & Test
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*' # Match version tags
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  rustfmt:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Run Rustfmt
+        run: cargo fmt --check
+
+  clippy:
+    name: Clippy Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature: [ chrono, time, "chrono time", serde, std ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Run Clippy
+        run: cargo clippy --features ${{ matrix.feature }}
+      - name: Run Clippy with --all-features
+        run: cargo clippy --all-features
+
+  check:
+    name: Cargo Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature: [ chrono, time, "chrono time", serde, std ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run Cargo Check
+        run: cargo check --features ${{ matrix.feature }}
+      - name: Run Cargo Check with --all-features
+        run: cargo check --all-features
+
+  test:
+    name: Cargo Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - chrono
+          - time
+          - "chrono time"
+          - serde
+          - std
+        rust:
+          - 1.85.0
+          - stable
+          - nightly
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust ${{ matrix.rust }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build
+        run: cargo build --verbose
+      - name: Run Tests
+        run: cargo test --features ${{ matrix.feature }}
+      - name: Run Tests with --all-features
+        run: cargo test --all-features
