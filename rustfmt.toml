@@ -1,0 +1,16 @@
+edition = "2024"
+control_brace_style = "ClosingNextLine"
+group_imports = "StdExternalCrate"
+hard_tabs = true
+imports_granularity = "Module"
+newline_style = "Unix"
+normalize_comments = true
+overflow_delimited_expr = true
+reorder_impl_items = true
+reorder_imports = true
+reorder_modules = true
+struct_lit_single_line = false
+tab_spaces = 2
+unstable_features = true
+use_field_init_shorthand = true
+use_try_shorthand = true

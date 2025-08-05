@@ -1,0 +1,22 @@
+This project includes modified code from the chrono project:
+Copyright (c) 2014, Kang Seonghoon.
+Licensed under MIT/Apache-2.0
+
+Modifications to chrono's weekday.rs:
+    1. Removed Rust module documentation header and replaced with simpler file-level documentation
+    2. Removed rkyv archive and validation related code and features
+    3. Modified serde implementation:
+    - Removed separate weekday_serde module
+    - Added direct serde attribute derive for the Weekday enum
+    - Added serde rename and alias attributes for enum variants
+    4. Changed From<u32> implementation to From<u8> with modulo operation for safety
+    5. Simplified error handling in some implementations
+    6. Removed parsing-related code (FromStr trait implementation)
+    7. Modified test suite:
+    - Removed rkyv-specific tests
+    - Modified serde tests to match new implementation
+    - Retained core functionality tests
+    8. Removed documentation examples that referenced removed functionality
+    9. Simplified some method implementations for better maintainability
+
+The core weekday functionality and API remain largely unchanged from the original chrono implementation.
