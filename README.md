@@ -2,8 +2,7 @@ relativedelta
 =============
 
 [![codecov](https://codecov.io/github/timkaas/relativedelta/graph/badge.svg?token=JN92RJTYZ1)](https://codecov.io/github/timkaas/relativedelta)
-[![Publish](https://github.com/timkaas/relativedelta/actions/workflows/publish.yml/badge.svg)](https://github.com/timkaas/relativedelta/actions/workflows/publish.yml)
-[![Coverage](https://github.com/timkaas/relativedelta/actions/workflows/coverage.yml/badge.svg)](https://github.com/timkaas/relativedelta/actions/workflows/coverage.yml)
+[![Check, Lint & Test](https://github.com/timkaas/relativedelta/actions/workflows/ci.yml/badge.svg)](https://github.com/timkaas/relativedelta/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/timkaas/relativedelta?style=flat-square)](https://github.com/timkaas/relativedelta/blob/master/LICENSE)
 [![crates.io](https://img.shields.io/crates/v/relativedelta?style=flat-square)](https://crates.io/crates/relativedelta)
 [![docs.rs](https://img.shields.io/badge/documentation-docs.rs-orange.svg?style=flat-square)](https://docs.rs/relativedelta/)
