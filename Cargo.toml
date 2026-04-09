@@ -27,7 +27,7 @@ serde = ["dep:serde", "chrono?/serde", "time?/serde"]
 
 [dependencies]
 chrono = { version = "0.4", optional = true }
-time = { version = "0.3", optional = true }
+time = { version = "0.3.47", optional = true }
 impl_ops = "0.1"
 num-integer = "0.1"
 num-traits = "0.2"
