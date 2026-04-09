@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ops;
-use core::ops::Add;
 
 use crate::RelativeDelta;
 use crate::from_error::FromError;
@@ -11,8 +10,88 @@ use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
 use chrono::{Datelike, Timelike};
 use num_integer::Integer;
 
-// Unfortunately we have to implement them manually as we dont want to restrict ourselves on a timezone
-impl<Tz: chrono::TimeZone> Add<&chrono::DateTime<Tz>> for &RelativeDelta {
+macro_rules! impl_add_sub {
+	($base:ty, $ret:ty) => {
+		impl ops::Add<$base> for &$crate::RelativeDelta {
+			type Output = $ret;
+			fn add(self, rhs: $base) -> Self::Output {
+				self + &rhs
+			}
+		}
+
+		impl ops::Add<&$base> for $crate::RelativeDelta {
+			type Output = $ret;
+			fn add(self, rhs: &$base) -> Self::Output {
+				&self + rhs
+			}
+		}
+
+		impl ops::Add<$base> for $crate::RelativeDelta {
+			type Output = $ret;
+			fn add(self, rhs: $base) -> Self::Output {
+				&self + &rhs
+			}
+		}
+
+		impl ops::Add<&$crate::RelativeDelta> for &$base {
+			type Output = $ret;
+			fn add(self, rhs: &$crate::RelativeDelta) -> Self::Output {
+				rhs + self
+			}
+		}
+
+		impl ops::Add<$crate::RelativeDelta> for &$base {
+			type Output = $ret;
+			fn add(self, rhs: $crate::RelativeDelta) -> Self::Output {
+				&rhs + self
+			}
+		}
+
+		impl ops::Add<&$crate::RelativeDelta> for $base {
+			type Output = $ret;
+			fn add(self, rhs: &$crate::RelativeDelta) -> Self::Output {
+				rhs + &self
+			}
+		}
+
+		impl ops::Add<$crate::RelativeDelta> for $base {
+			type Output = $ret;
+			fn add(self, rhs: $crate::RelativeDelta) -> Self::Output {
+				rhs + &self
+			}
+		}
+
+		impl ops::Sub<&$crate::RelativeDelta> for &$base {
+			type Output = $ret;
+			fn sub(self, rhs: &$crate::RelativeDelta) -> Self::Output {
+				self + &(-rhs)
+			}
+		}
+
+		impl ops::Sub<$crate::RelativeDelta> for &$base {
+			type Output = $ret;
+			fn sub(self, rhs: $crate::RelativeDelta) -> Self::Output {
+				self - &rhs
+			}
+		}
+
+		impl ops::Sub<&$crate::RelativeDelta> for $base {
+			type Output = $ret;
+			fn sub(self, rhs: &$crate::RelativeDelta) -> Self::Output {
+				&self - rhs
+			}
+		}
+
+		impl ops::Sub<$crate::RelativeDelta> for $base {
+			type Output = $ret;
+			fn sub(self, rhs: $crate::RelativeDelta) -> Self::Output {
+				&self - &rhs
+			}
+		}
+	};
+}
+
+impl<Tz: chrono::TimeZone> ops::Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 	type Output = chrono::DateTime<Tz>;
 
 	/// # Panics
@@ -74,66 +153,62 @@ impl<Tz: chrono::TimeZone> Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 	}
 }
 
-impl<Tz: chrono::TimeZone> Add<&chrono::DateTime<Tz>> for RelativeDelta {
+impl<Tz: chrono::TimeZone> ops::Add<chrono::DateTime<Tz>> for &RelativeDelta {
 	type Output = chrono::DateTime<Tz>;
+	fn add(self, rhs: chrono::DateTime<Tz>) -> Self::Output {
+		self + &rhs
+	}
+}
 
+impl<Tz: chrono::TimeZone> ops::Add<chrono::DateTime<Tz>> for RelativeDelta {
+	type Output = chrono::DateTime<Tz>;
+	#[allow(clippy::op_ref)]
+	fn add(self, rhs: chrono::DateTime<Tz>) -> Self::Output {
+		&self + &rhs
+	}
+}
+
+impl<Tz: chrono::TimeZone> ops::Add<&chrono::DateTime<Tz>> for RelativeDelta {
+	type Output = chrono::DateTime<Tz>;
 	#[allow(clippy::op_ref)]
 	fn add(self, rhs: &chrono::DateTime<Tz>) -> Self::Output {
 		&self + rhs
 	}
 }
 
-impl<Tz: chrono::TimeZone> Add<chrono::DateTime<Tz>> for &RelativeDelta {
+impl<Tz: chrono::TimeZone> ops::Add<&RelativeDelta> for &chrono::DateTime<Tz> {
 	type Output = chrono::DateTime<Tz>;
-
-	fn add(self, rhs: chrono::DateTime<Tz>) -> Self::Output {
-		self + &rhs
-	}
-}
-
-impl<Tz: chrono::TimeZone> Add<chrono::DateTime<Tz>> for RelativeDelta {
-	type Output = chrono::DateTime<Tz>;
-
-	fn add(self, rhs: chrono::DateTime<Tz>) -> Self::Output {
-		self + &rhs
-	}
-}
-
-impl<Tz: chrono::TimeZone> Add<&RelativeDelta> for &chrono::DateTime<Tz> {
-	type Output = chrono::DateTime<Tz>;
-
 	fn add(self, rhs: &RelativeDelta) -> Self::Output {
 		rhs + self
 	}
 }
 
-impl<Tz: chrono::TimeZone> Add<RelativeDelta> for &chrono::DateTime<Tz> {
+impl<Tz: chrono::TimeZone> ops::Add<RelativeDelta> for &chrono::DateTime<Tz> {
 	type Output = chrono::DateTime<Tz>;
-
+	#[allow(clippy::op_ref)]
 	fn add(self, rhs: RelativeDelta) -> Self::Output {
-		rhs + self
+		&rhs + self
 	}
 }
 
-impl<Tz: chrono::TimeZone> Add<&RelativeDelta> for chrono::DateTime<Tz> {
+impl<Tz: chrono::TimeZone> ops::Add<&RelativeDelta> for chrono::DateTime<Tz> {
 	type Output = chrono::DateTime<Tz>;
-
 	fn add(self, rhs: &RelativeDelta) -> Self::Output {
-		rhs + self
+		rhs + &self
 	}
 }
-impl<Tz: chrono::TimeZone> Add<RelativeDelta> for chrono::DateTime<Tz> {
-	type Output = chrono::DateTime<Tz>;
 
+impl<Tz: chrono::TimeZone> ops::Add<RelativeDelta> for chrono::DateTime<Tz> {
+	type Output = chrono::DateTime<Tz>;
+	#[allow(clippy::op_ref)]
 	fn add(self, rhs: RelativeDelta) -> Self::Output {
-		rhs + self
+		&rhs + &self
 	}
 }
 
 /// Sub (non commutative)
 impl<Tz: chrono::TimeZone> ops::Sub<&RelativeDelta> for &chrono::DateTime<Tz> {
 	type Output = chrono::DateTime<Tz>;
-
 	fn sub(self, rhs: &RelativeDelta) -> Self::Output {
 		self + (-rhs)
 	}
@@ -141,7 +216,6 @@ impl<Tz: chrono::TimeZone> ops::Sub<&RelativeDelta> for &chrono::DateTime<Tz> {
 
 impl<Tz: chrono::TimeZone> ops::Sub<RelativeDelta> for &chrono::DateTime<Tz> {
 	type Output = chrono::DateTime<Tz>;
-
 	#[allow(clippy::op_ref)]
 	fn sub(self, rhs: RelativeDelta) -> Self::Output {
 		self - &rhs
@@ -150,7 +224,6 @@ impl<Tz: chrono::TimeZone> ops::Sub<RelativeDelta> for &chrono::DateTime<Tz> {
 
 impl<Tz: chrono::TimeZone> ops::Sub<&RelativeDelta> for chrono::DateTime<Tz> {
 	type Output = chrono::DateTime<Tz>;
-
 	fn sub(self, rhs: &RelativeDelta) -> Self::Output {
 		&self - rhs
 	}
@@ -158,11 +231,110 @@ impl<Tz: chrono::TimeZone> ops::Sub<&RelativeDelta> for chrono::DateTime<Tz> {
 
 impl<Tz: chrono::TimeZone> ops::Sub<RelativeDelta> for chrono::DateTime<Tz> {
 	type Output = chrono::DateTime<Tz>;
-
+	#[allow(clippy::op_ref)]
 	fn sub(self, rhs: RelativeDelta) -> Self::Output {
-		&self - rhs
+		&self - &rhs
 	}
 }
+
+impl ops::Add<&chrono::NaiveDateTime> for &RelativeDelta {
+	type Output = chrono::NaiveDateTime;
+	#[allow(clippy::cast_possible_truncation)]
+	#[allow(clippy::cast_sign_loss)]
+	fn add(self, rhs: &chrono::NaiveDateTime) -> Self::Output {
+		let mut year = self.year().unwrap_or(rhs.year().into()) + self.years();
+		let month = self.month().map_or(rhs.month().into(), MonthsType::from) + self.months();
+		let (mut extra_years, mut relative_month) = month.div_rem(&12);
+		if relative_month <= 0 {
+			extra_years -= 1;
+			relative_month += 12;
+		}
+		year += extra_years;
+
+		let real_month = relative_month;
+		let ndim = u32::from(num_days_in_month(year, relative_month as MonthType));
+		let day = ndim.min(self.day().map_or(rhs.day(), u32::from));
+		let hour = self.hour().map_or(rhs.hour(), u32::from);
+		let minute = self.minute().map_or(rhs.minute(), u32::from);
+		let second = self.second().map_or(rhs.second(), u32::from);
+		let nanosecond = self.nanosecond().unwrap_or(rhs.nanosecond());
+
+		let datetime = chrono::NaiveDate::from_ymd_opt(year as i32, real_month as u32, day)
+			.expect("could not create date")
+			.and_hms_nano_opt(hour, minute, second, nanosecond)
+			.expect("could not create datetime");
+
+		let ret = datetime
+			+ chrono::Duration::days(self.days())
+			+ chrono::Duration::hours(self.hours())
+			+ chrono::Duration::minutes(self.minutes())
+			+ chrono::Duration::seconds(self.seconds())
+			+ chrono::Duration::nanoseconds(self.nanoseconds());
+
+		if let Some((weekday, nth)) = self.weekday() {
+			let mut jumpdays = (nth.abs() - 1) * 7;
+			if nth > 0 {
+				jumpdays += i64::from(
+					7 - ret.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
+				);
+			} else {
+				jumpdays += i64::from(
+					(ret.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
+				);
+				jumpdays *= -1;
+			}
+			ret + chrono::Duration::days(jumpdays)
+		} else {
+			ret
+		}
+	}
+}
+
+impl_add_sub!(chrono::NaiveDateTime, chrono::NaiveDateTime);
+
+impl ops::Add<&chrono::NaiveDate> for &RelativeDelta {
+	type Output = chrono::NaiveDate;
+	#[allow(clippy::cast_possible_truncation)]
+	#[allow(clippy::cast_sign_loss)]
+	fn add(self, rhs: &chrono::NaiveDate) -> Self::Output {
+		let mut year = self.year().unwrap_or(rhs.year().into()) + self.years();
+		let month = self.month().map_or(rhs.month().into(), MonthsType::from) + self.months();
+		let (mut extra_years, mut relative_month) = month.div_rem(&12);
+		if relative_month <= 0 {
+			extra_years -= 1;
+			relative_month += 12;
+		}
+		year += extra_years;
+
+		let real_month = relative_month;
+		let ndim = u32::from(num_days_in_month(year, relative_month as MonthType));
+		let day = ndim.min(self.day().map_or(rhs.day(), u32::from));
+
+		let date = chrono::NaiveDate::from_ymd_opt(year as i32, real_month as u32, day)
+			.expect("could not create date");
+
+		let ret = date + chrono::Duration::days(self.days());
+
+		if let Some((weekday, nth)) = self.weekday() {
+			let mut jumpdays = (nth.abs() - 1) * 7;
+			if nth > 0 {
+				jumpdays += i64::from(
+					7 - ret.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
+				);
+			} else {
+				jumpdays += i64::from(
+					(ret.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
+				);
+				jumpdays *= -1;
+			}
+			ret + chrono::Duration::days(jumpdays)
+		} else {
+			ret
+		}
+	}
+}
+
+impl_add_sub!(chrono::NaiveDate, chrono::NaiveDate);
 
 impl TryFrom<RelativeDelta> for chrono::NaiveDateTime {
 	type Error = FromError;
@@ -437,6 +609,63 @@ mod tests {
 				.single()
 				.ok_or(anyhow!("Test failed"))?
 		);
+		Ok(())
+	}
+
+	#[test]
+	fn test_naive() -> anyhow::Result<()> {
+		let nd = chrono::NaiveDate::from_ymd_opt(2020, 4, 28).unwrap();
+		let ndt = nd.and_hms_opt(12, 35, 48).unwrap();
+
+		let add_1_year = RelativeDelta::with_years(1).build();
+		assert_eq!(
+			nd + add_1_year,
+			chrono::NaiveDate::from_ymd_opt(2021, 4, 28).unwrap()
+		);
+		assert_eq!(
+			ndt + add_1_year,
+			chrono::NaiveDate::from_ymd_opt(2021, 4, 28)
+				.unwrap()
+				.and_hms_opt(12, 35, 48)
+				.unwrap()
+		);
+
+		let sub_1_year = RelativeDelta::with_years(1).build();
+		assert_eq!(
+			nd - sub_1_year,
+			chrono::NaiveDate::from_ymd_opt(2019, 4, 28).unwrap()
+		);
+		assert_eq!(
+			ndt - sub_1_year,
+			chrono::NaiveDate::from_ymd_opt(2019, 4, 28)
+				.unwrap()
+				.and_hms_opt(12, 35, 48)
+				.unwrap()
+		);
+
+		let add_1_month = RelativeDelta::with_months(1).build();
+		assert_eq!(
+			nd + add_1_month,
+			chrono::NaiveDate::from_ymd_opt(2020, 5, 28).unwrap()
+		);
+
+		let add_1_day = RelativeDelta::with_days(1).build();
+		assert_eq!(
+			nd + add_1_day,
+			chrono::NaiveDate::from_ymd_opt(2020, 4, 29).unwrap()
+		);
+
+		let set_day = RelativeDelta::with_day(1).build();
+		assert_eq!(
+			nd + set_day,
+			chrono::NaiveDate::from_ymd_opt(2020, 4, 1).unwrap()
+		);
+
+		let add_1_hour = RelativeDelta::with_hours(1).build();
+		// NaiveDate + 1 hour should still be same NaiveDate because it only adds days
+		assert_eq!(nd + add_1_hour, nd);
+		assert_eq!(ndt + add_1_hour, nd.and_hms_opt(13, 35, 48).unwrap());
+
 		Ok(())
 	}
 
