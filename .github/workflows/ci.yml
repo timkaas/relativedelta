@@ -65,7 +65,7 @@ jobs:
       matrix:
         feature: [ chrono, time, "\"chrono time\"", serde, std ]
         rust:
-          - 1.85.0
+          - 1.88.0
           - stable
           - nightly
       fail-fast: false
