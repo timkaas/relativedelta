@@ -91,6 +91,85 @@ macro_rules! impl_add_sub {
 	};
 }
 
+/// Helper struct to hold calculated date components
+struct DateComponents {
+	year: i32,
+	month: u32,
+	day: u32,
+}
+
+struct TimeComponents {
+	hour: u32,
+	minute: u32,
+	second: u32,
+	nanosecond: u32,
+}
+
+impl RelativeDelta {
+	fn time_duration(&self) -> chrono::TimeDelta {
+		chrono::Duration::days(self.days())
+			+ chrono::Duration::hours(self.hours())
+			+ chrono::Duration::minutes(self.minutes())
+			+ chrono::Duration::seconds(self.seconds())
+			+ chrono::Duration::nanoseconds(self.nanoseconds())
+	}
+
+	/// Calculates the adjusted year, month, and day from a `RelativeDelta` and source date
+	#[allow(clippy::cast_possible_truncation)]
+	#[allow(clippy::cast_sign_loss)]
+	fn date_components<D: Datelike>(&self, source: &D) -> DateComponents {
+		let mut year = self.year().unwrap_or(source.year().into()) + self.years();
+		let month = self.month().map_or(source.month().into(), MonthsType::from) + self.months();
+		let (mut extra_years, mut relative_month) = month.div_rem(&12);
+		if relative_month <= 0 {
+			extra_years -= 1;
+			relative_month += 12;
+		}
+		year += extra_years;
+
+		let num_days_in_month = u32::from(num_days_in_month(year, relative_month as MonthType));
+		let day = num_days_in_month.min(self.day().map_or(source.day(), u32::from));
+
+		DateComponents {
+			year: year as i32,
+			month: relative_month as u32,
+			day,
+		}
+	}
+
+	fn time_components<D: Timelike>(&self, source: &D) -> TimeComponents {
+		TimeComponents {
+			hour: self.hour().map_or(source.hour(), u32::from),
+			minute: self.minute().map_or(source.minute(), u32::from),
+			second: self.second().map_or(source.second(), u32::from),
+			nanosecond: self.nanosecond().unwrap_or(source.nanosecond()),
+		}
+	}
+
+	/// Applies weekday adjustments to a result date
+	fn apply_weekday_adjustment<D>(&self, result: D) -> D
+	where
+		D: Datelike + ops::Add<chrono::Duration, Output = D>,
+	{
+		if let Some((weekday, nth)) = self.weekday() {
+			let mut jumpdays = (nth.abs() - 1) * 7;
+			if nth > 0 {
+				jumpdays += i64::from(
+					7 - result.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
+				);
+			} else {
+				jumpdays += i64::from(
+					(result.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
+				);
+				jumpdays *= -1;
+			}
+			result + chrono::Duration::days(jumpdays)
+		} else {
+			result
+		}
+	}
+}
+
 impl<Tz: chrono::TimeZone> ops::Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 	type Output = chrono::DateTime<Tz>;
 
@@ -100,56 +179,23 @@ impl<Tz: chrono::TimeZone> ops::Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 	#[allow(clippy::cast_possible_truncation)]
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::DateTime<Tz>) -> Self::Output {
-		let mut year = self.year().unwrap_or(rhs.year().into()) + self.years();
-		let month = self.month().map_or(rhs.month().into(), MonthsType::from) + self.months();
-		let (mut extra_years, mut relative_month) = month.div_rem(&12);
-		if relative_month <= 0 {
-			extra_years -= 1;
-			relative_month += 12;
-		}
-		year += extra_years;
-
-		let real_month = relative_month;
-		// Clamp day to max number of days in calculated month
-		let ndim = u32::from(num_days_in_month(year, relative_month as MonthType));
-		// If day is not set, use the day from rhs, otherwise clamp it to
-		// the maximum number of days in the month.
-		let day = ndim.min(self.day().map_or(rhs.day(), u32::from));
-		let hour = self.hour().map_or(rhs.hour(), u32::from);
-		let minute = self.minute().map_or(rhs.minute(), u32::from);
-		let second = self.second().map_or(rhs.second(), u32::from);
-		let nanosecond = self.nanosecond().unwrap_or(rhs.nanosecond());
+		let DateComponents { year, month, day } = self.date_components(rhs);
+		let TimeComponents {
+			hour,
+			minute,
+			second,
+			nanosecond,
+		} = self.time_components(rhs);
 
 		let datetime = rhs
 			.timezone()
-			.with_ymd_and_hms(year as i32, real_month as u32, day, hour, minute, second)
+			.with_ymd_and_hms(year, month, day, hour, minute, second)
 			.single()
 			.and_then(|d| d.with_nanosecond(nanosecond))
 			.expect("could not create datetime");
 
-		let ret = datetime
-			+ chrono::Duration::days(self.days())
-			+ chrono::Duration::hours(self.hours())
-			+ chrono::Duration::minutes(self.minutes())
-			+ chrono::Duration::seconds(self.seconds())
-			+ chrono::Duration::nanoseconds(self.nanoseconds());
-
-		if let Some((weekday, nth)) = self.weekday() {
-			let mut jumpdays = (nth.abs() - 1) * 7;
-			if nth > 0 {
-				jumpdays += i64::from(
-					7 - ret.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
-				);
-			} else {
-				jumpdays += i64::from(
-					(ret.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
-				);
-				jumpdays *= -1;
-			}
-			ret + chrono::Duration::days(jumpdays)
-		} else {
-			ret
-		}
+		let ret = datetime + self.time_duration();
+		self.apply_weekday_adjustment(ret)
 	}
 }
 
@@ -242,51 +288,22 @@ impl ops::Add<&chrono::NaiveDateTime> for &RelativeDelta {
 	#[allow(clippy::cast_possible_truncation)]
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::NaiveDateTime) -> Self::Output {
-		let mut year = self.year().unwrap_or(rhs.year().into()) + self.years();
-		let month = self.month().map_or(rhs.month().into(), MonthsType::from) + self.months();
-		let (mut extra_years, mut relative_month) = month.div_rem(&12);
-		if relative_month <= 0 {
-			extra_years -= 1;
-			relative_month += 12;
-		}
-		year += extra_years;
+		let DateComponents { year, month, day } = self.date_components(rhs);
+		let TimeComponents {
+			hour,
+			minute,
+			second,
+			nanosecond,
+		} = self.time_components(rhs);
 
-		let real_month = relative_month;
-		let ndim = u32::from(num_days_in_month(year, relative_month as MonthType));
-		let day = ndim.min(self.day().map_or(rhs.day(), u32::from));
-		let hour = self.hour().map_or(rhs.hour(), u32::from);
-		let minute = self.minute().map_or(rhs.minute(), u32::from);
-		let second = self.second().map_or(rhs.second(), u32::from);
-		let nanosecond = self.nanosecond().unwrap_or(rhs.nanosecond());
-
-		let datetime = chrono::NaiveDate::from_ymd_opt(year as i32, real_month as u32, day)
+		let datetime = chrono::NaiveDate::from_ymd_opt(year, month, day)
 			.expect("could not create date")
 			.and_hms_nano_opt(hour, minute, second, nanosecond)
 			.expect("could not create datetime");
 
-		let ret = datetime
-			+ chrono::Duration::days(self.days())
-			+ chrono::Duration::hours(self.hours())
-			+ chrono::Duration::minutes(self.minutes())
-			+ chrono::Duration::seconds(self.seconds())
-			+ chrono::Duration::nanoseconds(self.nanoseconds());
+		let ret = datetime + self.time_duration();
 
-		if let Some((weekday, nth)) = self.weekday() {
-			let mut jumpdays = (nth.abs() - 1) * 7;
-			if nth > 0 {
-				jumpdays += i64::from(
-					7 - ret.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
-				);
-			} else {
-				jumpdays += i64::from(
-					(ret.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
-				);
-				jumpdays *= -1;
-			}
-			ret + chrono::Duration::days(jumpdays)
-		} else {
-			ret
-		}
+		self.apply_weekday_adjustment(ret)
 	}
 }
 
@@ -297,40 +314,12 @@ impl ops::Add<&chrono::NaiveDate> for &RelativeDelta {
 	#[allow(clippy::cast_possible_truncation)]
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::NaiveDate) -> Self::Output {
-		let mut year = self.year().unwrap_or(rhs.year().into()) + self.years();
-		let month = self.month().map_or(rhs.month().into(), MonthsType::from) + self.months();
-		let (mut extra_years, mut relative_month) = month.div_rem(&12);
-		if relative_month <= 0 {
-			extra_years -= 1;
-			relative_month += 12;
-		}
-		year += extra_years;
+		let DateComponents { year, month, day } = self.date_components(rhs);
 
-		let real_month = relative_month;
-		let ndim = u32::from(num_days_in_month(year, relative_month as MonthType));
-		let day = ndim.min(self.day().map_or(rhs.day(), u32::from));
-
-		let date = chrono::NaiveDate::from_ymd_opt(year as i32, real_month as u32, day)
-			.expect("could not create date");
+		let date = chrono::NaiveDate::from_ymd_opt(year, month, day).expect("could not create date");
 
 		let ret = date + chrono::Duration::days(self.days());
-
-		if let Some((weekday, nth)) = self.weekday() {
-			let mut jumpdays = (nth.abs() - 1) * 7;
-			if nth > 0 {
-				jumpdays += i64::from(
-					7 - ret.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
-				);
-			} else {
-				jumpdays += i64::from(
-					(ret.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
-				);
-				jumpdays *= -1;
-			}
-			ret + chrono::Duration::days(jumpdays)
-		} else {
-			ret
-		}
+		self.apply_weekday_adjustment(ret)
 	}
 }
 
@@ -638,6 +627,19 @@ mod tests {
 		assert_eq!(
 			ndt - sub_1_year,
 			chrono::NaiveDate::from_ymd_opt(2019, 4, 28)
+				.unwrap()
+				.and_hms_opt(12, 35, 48)
+				.unwrap()
+		);
+
+		let sub_1_year = RelativeDelta::with_years(-1).build();
+		assert_eq!(
+			nd - sub_1_year,
+			chrono::NaiveDate::from_ymd_opt(2021, 4, 28).unwrap()
+		);
+		assert_eq!(
+			ndt - sub_1_year,
+			chrono::NaiveDate::from_ymd_opt(2021, 4, 28)
 				.unwrap()
 				.and_hms_opt(12, 35, 48)
 				.unwrap()
