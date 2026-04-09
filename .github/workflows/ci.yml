@@ -65,7 +65,7 @@ jobs:
       matrix:
         feature: [ chrono, time, "\"chrono time\"", serde, std ]
         rust:
-          - 1.85.0
+          - 1.88.0
           - stable
           - nightly
       fail-fast: false
@@ -89,3 +89,18 @@ jobs:
         run: cargo test --features ${{ matrix.feature }}
       - name: Run Tests with --all-features
         run: cargo test --all-features
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+        # Needed for audit-check@v2
+      - name: generate Cargo.lock
+        run: cargo generate-lockfile
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

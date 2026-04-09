@@ -32,7 +32,7 @@ relativedelta = "0.3"
 
 ### Minimum Supported Rust Version (MSRV)
 
-This crate supports Rust 1.85.0 or later.
+This crate supports Rust 1.88.0 or later.
 
 ### Optional features
 
