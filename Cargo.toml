@@ -9,7 +9,7 @@ Currently the time and chrono crates are supported.
 """
 keywords = ["datetime", "relative", "deltatime", "calendar", "no-std"]
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.88.0"
 license = "MPL-2.0+"
 homepage = "https://github.com/timkaas/relativedelta/"
 repository = "https://github.com/timkaas/relativedelta/"
@@ -40,6 +40,9 @@ time-core = { version = "0.1", optional = true }
 anyhow = "1.0"
 serde_json = "1.0"
 similar-asserts = "2.0"
+
+[build-dependencies]
+regex = "1.12.3"
 
 [package.metadata.docs.rs]
 all-features = true

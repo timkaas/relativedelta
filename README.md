@@ -32,7 +32,7 @@ relativedelta = "0.3"
 
 ### Minimum Supported Rust Version (MSRV)
 
-This crate supports Rust 1.88.0 or later.
+This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
 
 ### Optional features
 
@@ -219,7 +219,7 @@ For more examples, see [examples](new_examples.md).
       and allows for updating values using the `.and_*()` methods.
     - On the **Builder**, all `.with_*()` methods have been removed in favor of just `.and_*()` methods.
 
-5. **Rust Edition**: Updated to Rust edition 2024 with MSRV 1.85.0.
+5. **Rust Edition**: Updated to Rust edition 2024 with MSRV <!-- MSRV_START -->1.88.0<!-- MSRV_END -->.
 
 For more details, see the [migration guide](migration_guide.md).
 
