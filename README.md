@@ -39,6 +39,7 @@ This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
 - **chrono**: Enable support for the [chrono](https://crates.io/crates/chrono) crate.
 - **time**: Enable support for the [time](https://crates.io/crates/time) crate.
 - **serde**: Enable serialization/deserialization via [serde](https://crates.io/crates/serde).
+- **schemars**: Enable JSON schema generation via [schemars](https://crates.io/crates/schemars).
 - **std**: Enable features that depend on the Rust standard library. Without this feature, the crate operates in `no_std` mode.
 
 ## Overview
