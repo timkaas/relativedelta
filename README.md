@@ -7,16 +7,20 @@ relativedelta
 [![crates.io](https://img.shields.io/crates/v/relativedelta?style=flat-square)](https://crates.io/crates/relativedelta)
 [![docs.rs](https://img.shields.io/badge/documentation-docs.rs-orange.svg?style=flat-square)](https://docs.rs/relativedelta/)
 
-> Rust implementation of `relativedelta` known from Python's [dateutil](https://pypi.org/project/python-dateutil/) library. Calculate dates by adding relative and offset values to a datetime instance. Currently, the [time](https://crates.io/crates/time) and [chrono](https://crates.io/crates/chrono) crates are supported.
+> **Handle complex date arithmetic seamlessly.** Add or subtract months and years without off-by-one errors, target specific weekdays, or lock dates to particular months. A better alternative to `Duration` for semantic calendar operations.
+>
+> Works with [chrono](https://crates.io/crates/chrono) and [time](https://crates.io/crates/time) crates. Inspired by [Python's dateutil.relativedelta](https://pypi.org/project/python-dateutil/).
 
 ### **[Documentation](https://docs.rs/crate/relativedelta/latest)**
 
 ## Table of Contents
 
 - [Usage](#usage)
-- [Overview](#overview)
+- [When RelativeDelta Shines](#when-relativedelta-shines)
 - [Features](#optional-features)
 - [Examples](#examples)
+- [Real-World Examples](#real-world-examples)
+- [Guides](#guides)
 - [Migration Guide](#migration-from-02x-to-030)
 - [Contributing](#contributing)
 - [License](#license)
@@ -32,14 +36,24 @@ relativedelta = "0.3"
 
 ### Minimum Supported Rust Version (MSRV)
 
-This crate supports Rust 1.88.0 or later.
+This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
 
 ### Optional features
 
 - **chrono**: Enable support for the [chrono](https://crates.io/crates/chrono) crate.
 - **time**: Enable support for the [time](https://crates.io/crates/time) crate.
 - **serde**: Enable serialization/deserialization via [serde](https://crates.io/crates/serde).
+- **schemars**: Enable JSON schema generation via [schemars](https://crates.io/crates/schemars).
 - **std**: Enable features that depend on the Rust standard library. Without this feature, the crate operates in `no_std` mode.
+
+## When RelativeDelta Shines
+
+| Problem | Duration Approach | RelativeDelta |
+|---------|-------------------|----------------|
+| **Add 1 month to Jan 31** | ❌ Breaks (Feb 31 doesn't exist) | ✅ Automatically clamps to Feb 28/29 |
+| **Get last day of month** | ❌ Manual: `date + months(1) - days(1)` | ✅ Simple: `.and_day(1).and_months(1).and_days(-1)` |
+| **Find 2nd Tuesday next quarter** | ❌ Complex date math + weekday logic | ✅ Direct: `.and_months(3).and_weekday(Some(Weekday::Tue, 2))` |
+| **Salary review in 1 month** | ❌ Naive addition fails on month boundaries | ✅ Semantic: `.and_months(1)` respects calendar |
 
 ## Overview
 
@@ -66,6 +80,51 @@ month, one would use the `::with_day()` or `.and_day()` method. All absolute val
 `RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to e.g.
 ask for the second tuesday one year from today,
 with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Some(Weekday::Tue, 2)).build()`.
+
+### Real-World Examples
+
+#### HR & Payroll
+
+```rust
+use relativedelta::RelativeDelta;
+use chrono::Utc;
+
+// Calculate salary review date (1 month from hire date)
+let hire_date = Utc::now();
+let salary_review = hire_date + RelativeDelta::with_months(1).build();
+
+// Get last day of month for monthly closing
+let last_day_of_month = Utc::now() 
+    + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+```
+
+#### Finance & Recurring Billing
+
+```rust
+// Monthly charge on day 15 (even if current month has < 15 days)
+let today = Utc::now();
+let next_charge = today + RelativeDelta::with_months(1).and_day(Some(15)).build();
+
+// Quarterly reporting (3 months forward)
+let next_quarter = today + RelativeDelta::with_months(3).build();
+```
+
+#### Scheduling & Deadlines
+
+```rust
+// Find 2nd Tuesday of next month
+let second_tuesday_next_month = today 
+    + RelativeDelta::with_months(1)
+        .and_weekday(Some((Weekday::Tue, 2)))
+        .build();
+
+// Deadline: last working day of month
+let deadline = today 
+    + RelativeDelta::with_day(1)
+        .and_months(1)
+        .and_days(-1)
+        .build();
+```
 
 ### Examples
 
@@ -189,7 +248,12 @@ let third_tuesday_next_month = RelativeDelta::with_months(1)
 
 For more examples, see [examples](new_examples.md).
 
-## Migration from 0.2.x to 0.3.0
+## Guides
+
+- **[vs Duration](docs/vs-duration.md)** — When to use RelativeDelta vs Duration, with detailed comparisons and decision matrix
+- **[Cookbook](docs/cookbook.md)** — Real-world recipes for HR, payroll, finance, scheduling, and calendar operations
+
+## Migration from 0.3.0
 
 **RelativeDelta** has been significantly refactored in version 0.3.0. The main changes are:
 
@@ -219,7 +283,7 @@ For more examples, see [examples](new_examples.md).
       and allows for updating values using the `.and_*()` methods.
     - On the **Builder**, all `.with_*()` methods have been removed in favor of just `.and_*()` methods.
 
-5. **Rust Edition**: Updated to Rust edition 2024 with MSRV 1.85.0.
+5. **Rust Edition**: Updated to Rust edition 2024 with MSRV <!-- MSRV_START -->1.88.0<!-- MSRV_END -->.
 
 For more details, see the [migration guide](migration_guide.md).
 

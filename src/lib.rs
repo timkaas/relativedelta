@@ -172,7 +172,6 @@ let last_day = time::UtcDateTime::now() + RelativeDelta::with_day(1)
 ```
 "
 )]
-//!
 //! #### Working with Weekdays
 //!
 //! Get the 3rd Tuesday of next month:
@@ -213,8 +212,9 @@ pub use crate::relativedelta::RelativeDelta;
 
 #[cfg(test)]
 mod tests {
-	use super::*;
 	use similar_asserts::assert_eq;
+
+	use super::*;
 
 	#[test]
 	fn test_add_self() {

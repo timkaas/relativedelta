@@ -33,6 +33,7 @@ use core::fmt;
 /// ```
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Weekday {
 	/// Monday.
 	#[cfg_attr(feature = "serde", serde(alias = "Monday"))]
@@ -203,9 +204,10 @@ impl num_traits::FromPrimitive for Weekday {
 }
 #[cfg(test)]
 mod tests {
-	use super::*;
 	use num_traits::FromPrimitive;
 	use similar_asserts::assert_eq;
+
+	use super::*;
 
 	#[test]
 	fn test_days_since() {
@@ -250,9 +252,10 @@ mod tests {
 	#[test]
 	#[cfg(feature = "serde")]
 	fn test_serde_serialize() {
+		use std::vec;
+
 		use Weekday::*;
 		use serde_json::to_string;
-		use std::vec;
 
 		let cases: vec::Vec<(Weekday, &str)> = vec![
 			(Mon, "\"Mon\""),
@@ -273,9 +276,10 @@ mod tests {
 	#[test]
 	#[cfg(feature = "serde")]
 	fn test_serde_deserialize() {
+		use std::vec;
+
 		use Weekday::*;
 		use serde_json::from_str;
-		use std::vec;
 
 		let cases: vec::Vec<(&str, Weekday)> = vec![
 			("\"Mon\"", Mon),
@@ -344,5 +348,89 @@ mod tests {
 		assert_eq!(Weekday::from_i64(5), Some(Weekday::Sat));
 		assert_eq!(Weekday::from_i64(6), Some(Weekday::Sun));
 		assert_eq!(Weekday::from_i64(7), None);
+	}
+
+	#[test]
+	#[cfg(feature = "schemars")]
+	fn test_schemars_schema() {
+		use schemars::JsonSchema;
+		use schemars::generate::SchemaGenerator;
+
+		let mut generator = SchemaGenerator::default();
+		let schema = Weekday::json_schema(&mut generator);
+
+		// Verify schema is generated successfully with enum variants
+		// Enums are represented with oneOf containing const values
+		let one_of = schema
+			.get("oneOf")
+			.and_then(|v| v.as_array())
+			.expect("Schema should have oneOf variants");
+
+		assert!(
+			one_of.len() >= 7,
+			"Schema should contain at least 7 weekday variants"
+		);
+
+		// Extract the const values from each variant
+		let variants: Vec<String> = one_of
+			.iter()
+			.filter_map(|v| v.get("const").and_then(|c| c.as_str()).map(String::from))
+			.collect();
+
+		// Verify all weekday variants are in the schema
+		assert!(
+			variants.contains(&"Mon".to_string()),
+			"Schema should contain Mon variant"
+		);
+		assert!(
+			variants.contains(&"Tue".to_string()),
+			"Schema should contain Tue variant"
+		);
+		assert!(
+			variants.contains(&"Wed".to_string()),
+			"Schema should contain Wed variant"
+		);
+		assert!(
+			variants.contains(&"Thu".to_string()),
+			"Schema should contain Thu variant"
+		);
+		assert!(
+			variants.contains(&"Fri".to_string()),
+			"Schema should contain Fri variant"
+		);
+		assert!(
+			variants.contains(&"Sat".to_string()),
+			"Schema should contain Sat variant"
+		);
+		assert!(
+			variants.contains(&"Sun".to_string()),
+			"Schema should contain Sun variant"
+		);
+	}
+
+	#[test]
+	#[cfg(all(feature = "schemars", feature = "serde"))]
+	fn test_schemars_serde_compatibility() {
+		use schemars::JsonSchema;
+		use schemars::generate::SchemaGenerator;
+
+		// Create instance and verify it can be serialized while schema is defined
+		let weekday = Weekday::Mon;
+
+		// Verify schema generation doesn't fail with serde enabled
+		let mut generator = SchemaGenerator::default();
+		let schema = Weekday::json_schema(&mut generator);
+		assert!(
+			schema.get("oneOf").is_some(),
+			"Schema should generate successfully with serde"
+		);
+
+		// Verify serialization works with schema available
+		let serialized = serde_json::to_string(&weekday).unwrap();
+		let deserialized: Weekday = serde_json::from_str(&serialized).unwrap();
+		assert_eq!(
+			weekday, deserialized,
+			"Serde + Schemars should work together"
+		);
 	}
 }

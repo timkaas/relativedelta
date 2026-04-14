@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ops;
+
 #[allow(clippy::wildcard_imports)]
 use impl_ops::*;
 use num_integer::Integer;
@@ -467,6 +468,7 @@ assert_eq!(d, Utc.with_ymd_and_hms(2021, 1, 4,0,0,0).unwrap());
 )]
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(default))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct RelativeDelta {
 	#[cfg_attr(feature = "serde", serde(skip_serializing_if = "YearType::is_zero"))]
 	years: YearsType,
@@ -928,7 +930,6 @@ pub fn num_days_in_month(year: YearType, month: MonthType) -> DayType {
 /// assert_eq!(num_days_in_month(2020, 1), 31); // January
 /// assert_eq!(num_days_in_month(2020, 2), 29); // February in a leap year
 /// assert_eq!(num_days_in_month(2021, 2), 28); // February in a non-leap year
-///
 /// ```
 #[allow(clippy::cast_possible_truncation)]
 #[cfg(feature = "time")]
@@ -1006,8 +1007,9 @@ impl_op_ex!(/ |lhs: &RelativeDelta, rhs: usize| -> RelativeDelta {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
 	use similar_asserts::assert_eq;
+
+	use super::*;
 
 	#[test]
 	fn test_negate() {
@@ -1103,5 +1105,112 @@ mod tests {
 		assert_eq!(deserialized_from_json.days, 3);
 		assert_eq!(deserialized_from_json.hours, 4);
 		assert_eq!(deserialized_from_json.minutes, -5);
+	}
+
+	#[test]
+	#[cfg(feature = "schemars")]
+	fn test_schemars_schema() {
+		use schemars::JsonSchema;
+		use schemars::generate::SchemaGenerator;
+
+		let mut generator = SchemaGenerator::default();
+		let schema = RelativeDelta::json_schema(&mut generator);
+
+		// Verify schema is generated and contains expected properties
+		let properties = schema
+			.get("properties")
+			.and_then(|p| p.as_object())
+			.expect("Schema should have object properties");
+
+		// Check for key relative fields
+		assert!(
+			properties.contains_key("years"),
+			"Schema should contain 'years' field"
+		);
+		assert!(
+			properties.contains_key("months"),
+			"Schema should contain 'months' field"
+		);
+		assert!(
+			properties.contains_key("days"),
+			"Schema should contain 'days' field"
+		);
+		assert!(
+			properties.contains_key("hours"),
+			"Schema should contain 'hours' field"
+		);
+		assert!(
+			properties.contains_key("minutes"),
+			"Schema should contain 'minutes' field"
+		);
+		assert!(
+			properties.contains_key("seconds"),
+			"Schema should contain 'seconds' field"
+		);
+		assert!(
+			properties.contains_key("nanoseconds"),
+			"Schema should contain 'nanoseconds' field"
+		);
+
+		// Check for key absolute fields
+		assert!(
+			properties.contains_key("year"),
+			"Schema should contain 'year' field"
+		);
+		assert!(
+			properties.contains_key("month"),
+			"Schema should contain 'month' field"
+		);
+		assert!(
+			properties.contains_key("day"),
+			"Schema should contain 'day' field"
+		);
+		assert!(
+			properties.contains_key("hour"),
+			"Schema should contain 'hour' field"
+		);
+		assert!(
+			properties.contains_key("minute"),
+			"Schema should contain 'minute' field"
+		);
+		assert!(
+			properties.contains_key("second"),
+			"Schema should contain 'second' field"
+		);
+		assert!(
+			properties.contains_key("nanosecond"),
+			"Schema should contain 'nanosecond' field"
+		);
+		assert!(
+			properties.contains_key("weekday"),
+			"Schema should contain 'weekday' field"
+		);
+	}
+
+	#[test]
+	#[cfg(all(feature = "schemars", feature = "serde"))]
+	fn test_schemars_serde_compatibility() {
+		use schemars::JsonSchema;
+		use schemars::generate::SchemaGenerator;
+
+		// Create instance and verify it can be serialized/deserialized while schema is defined
+		let rd = RelativeDelta::with_years(1)
+			.and_months(2)
+			.and_days(3)
+			.and_hours(4)
+			.build();
+
+		// Verify schema generation doesn't fail
+		let mut generator = SchemaGenerator::default();
+		let schema = RelativeDelta::json_schema(&mut generator);
+		assert!(
+			schema.get("properties").is_some(),
+			"Schema should generate successfully with serde"
+		);
+
+		// Verify serialization works with schema available
+		let serialized = serde_json::to_string(&rd).unwrap();
+		let deserialized: RelativeDelta = serde_json::from_str(&serialized).unwrap();
+		assert_eq!(rd, deserialized, "Serde + Schemars should work together");
 	}
 }

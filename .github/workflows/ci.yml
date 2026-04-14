@@ -17,12 +17,24 @@ permissions:
   id-token: write
 
 jobs:
+  extract-msrv:
+    name: Extract MSRV
+    runs-on: ubuntu-latest
+    outputs:
+      msrv: ${{ steps.msrv.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: msrv
+        run: |
+          MSRV=$(grep '^rust-version' Cargo.toml | grep -oP '\d+\.\d+\.\d+')
+          echo "version=$MSRV" >> $GITHUB_OUTPUT
+
   rustfmt:
     name: Format Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
       - name: Run Rustfmt
@@ -60,12 +72,13 @@ jobs:
 
   test:
     name: Cargo Test
+    needs: extract-msrv
     runs-on: ubuntu-latest
     strategy:
       matrix:
         feature: [ chrono, time, "\"chrono time\"", serde, std ]
         rust:
-          - 1.88.0
+          - ${{ needs.extract-msrv.outputs.msrv }}
           - stable
           - nightly
       fail-fast: false
@@ -89,6 +102,7 @@ jobs:
         run: cargo test --features ${{ matrix.feature }}
       - name: Run Tests with --all-features
         run: cargo test --all-features
+
   audit:
     name: Audit
     runs-on: ubuntu-latest
