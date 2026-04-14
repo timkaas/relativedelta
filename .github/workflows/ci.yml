@@ -34,11 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
       - name: Run Rustfmt
-        run: cargo +nightly fmt --check
+        run: cargo fmt --check
 
   clippy:
     name: Clippy Lint
