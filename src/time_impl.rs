@@ -2,14 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::RelativeDelta;
-use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
 use core::ops;
+
 #[allow(clippy::wildcard_imports)]
 use impl_ops::*;
 use num_integer::Integer;
 
+use crate::RelativeDelta;
 use crate::from_error::FromError;
+use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
 
 unsafe fn month_unchecked(month: MonthType) -> time::Month {
 	// Safety: `month` is guaranteed to be in the range 1..=12
@@ -66,14 +67,16 @@ macro_rules! impl_add {
 				if nth > 0 {
 					jumpdays +=
 						i64::from(7 - ret.weekday().number_days_from_monday() + weekday.num_days_from_monday());
-				} else {
+				}
+				else {
 					jumpdays += i64::from(
 						(ret.weekday().number_days_from_monday() - weekday.num_days_from_monday()) % 7,
 					);
 					jumpdays *= -1;
 				}
 				ret + time::Duration::days(jumpdays)
-			} else {
+			}
+			else {
 				ret
 			}
 		}
@@ -131,12 +134,12 @@ impl TryFrom<RelativeDelta> for time::PrimitiveDateTime {
 
 #[cfg(test)]
 mod tests {
+	use similar_asserts::assert_eq;
+	use time::PrimitiveDateTime;
+
 	use super::*;
 	use crate::relativedelta::*;
 	use crate::*;
-
-	use similar_asserts::assert_eq;
-	use time::PrimitiveDateTime;
 
 	fn primitive_ymd_hmsn(
 		year: YearType,

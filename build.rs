@@ -1,5 +1,6 @@
-use regex::Regex;
 use std::fs;
+
+use regex::Regex;
 
 fn main() {
 	println!("cargo:rerun-if-changed=build.rs");

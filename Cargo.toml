@@ -2,12 +2,8 @@
 name = "relativedelta"
 version = "0.0.0-replace-me"
 readme = "README.md"
-description = """
-Rust implementation of relativedelta known from Python's dateutil library.
-Calculate dates by adding relative and offset values to a datetime instance.
-Currently the time and chrono crates are supported.
-"""
-keywords = ["datetime", "relative", "deltatime", "calendar", "no-std"]
+description = "Complex date arithmetic: add/subtract months and years without errors, target weekdays, lock dates. Better than Duration for semantic calendar operations."
+keywords = ["datetime", "relative", "deltatime", "calendar", "date-arithmetic"]
 edition = "2024"
 rust-version = "1.88.0"
 license = "MPL-2.0+"

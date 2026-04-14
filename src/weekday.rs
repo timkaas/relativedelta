@@ -204,9 +204,10 @@ impl num_traits::FromPrimitive for Weekday {
 }
 #[cfg(test)]
 mod tests {
-	use super::*;
 	use num_traits::FromPrimitive;
 	use similar_asserts::assert_eq;
+
+	use super::*;
 
 	#[test]
 	fn test_days_since() {
@@ -251,9 +252,10 @@ mod tests {
 	#[test]
 	#[cfg(feature = "serde")]
 	fn test_serde_serialize() {
+		use std::vec;
+
 		use Weekday::*;
 		use serde_json::to_string;
-		use std::vec;
 
 		let cases: vec::Vec<(Weekday, &str)> = vec![
 			(Mon, "\"Mon\""),
@@ -274,9 +276,10 @@ mod tests {
 	#[test]
 	#[cfg(feature = "serde")]
 	fn test_serde_deserialize() {
+		use std::vec;
+
 		use Weekday::*;
 		use serde_json::from_str;
-		use std::vec;
 
 		let cases: vec::Vec<(&str, Weekday)> = vec![
 			("\"Mon\"", Mon),
@@ -425,6 +428,9 @@ mod tests {
 		// Verify serialization works with schema available
 		let serialized = serde_json::to_string(&weekday).unwrap();
 		let deserialized: Weekday = serde_json::from_str(&serialized).unwrap();
-		assert_eq!(weekday, deserialized, "Serde + Schemars should work together");
+		assert_eq!(
+			weekday, deserialized,
+			"Serde + Schemars should work together"
+		);
 	}
 }

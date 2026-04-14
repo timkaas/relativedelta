@@ -38,7 +38,7 @@ jobs:
         with:
           components: rustfmt
       - name: Run Rustfmt
-        run: cargo fmt --check
+        run: cargo +nightly fmt --check
 
   clippy:
     name: Clippy Lint
