@@ -442,7 +442,7 @@ impl Builder {
 /// ```
 /// This crates party piece is the ability to calculate dates based on already existing `chrono::DateTime`
 #[cfg_attr(
-	feature = "chrono",
+	all(feature = "chrono", feature = "std"),
 	doc = r#"
 ```
 # use relativedelta::{RelativeDelta, Weekday};

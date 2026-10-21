@@ -135,7 +135,7 @@
 //!
 //! #### Using `RelativeDelta` with Datetime Libraries
 #![cfg_attr(
-	feature = "chrono",
+	all(feature = "chrono", feature = "std"),
 	doc = r"
 With the chrono crate (requires the **chrono** feature):
 ```
@@ -154,7 +154,7 @@ let first_monday_after_one_year = chrono::Utc::now() + RelativeDelta::with_years
 "
 )]
 #![cfg_attr(
-	feature = "time",
+	all(feature = "time", feature = "std"),
 	doc = r"
 With the time crate (requires the **time** feature):
 
