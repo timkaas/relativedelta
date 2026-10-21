@@ -18,7 +18,7 @@ path = "src/lib.rs"
 
 [features]
 default = ["num-traits/libm"]
-std = ["chrono?/std", "chrono?/clock", "time?/std", "num-integer/std", "num-traits/std", "thiserror/std"]
+std = ["chrono?/std", "chrono?/clock", "time?/std", "serde?/std", "num-integer/std", "num-traits/std", "thiserror/std"]
 time = ["dep:time", "dep:time-core"]
 chrono = ["dep:chrono"]
 serde = ["dep:serde", "chrono?/serde", "time?/serde"]
@@ -29,7 +29,7 @@ chrono = { version = "0.4.45", optional = true, default-features = false }
 time = { version = "0.3.55", optional = true, default-features = false }
 num-integer = { version = "0.1.47", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
-serde = { version = "1.0.229", optional = true, features = ["derive"] }
+serde = { version = "1.0.229", optional = true, default-features = false, features = ["derive"] }
 paste = "1.0.15"
 thiserror = { version = "2.0.21", default-features = false }
 time-core = { version = "0.1.9", optional = true }
