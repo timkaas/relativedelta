@@ -23,7 +23,7 @@
 //! ```
 //! ## Binary operators
 //!
-//! ```
+//! ```ignore
 //! // impl_op!(op |a: LHS, b: RHS| -> OUT {...});
 //! // impl_op!(op |a: LHS, b: &RHS| -> OUT {...});
 //! // impl_op!(op |a: &LHS, b: RHS| -> OUT {...});
@@ -54,7 +54,7 @@
 //! }
 //! ```
 //! ## Assignment operators
-//! ```
+//! ```ignore
 //! // impl_op!(op #[attr] |a: &mut LHS, b: RHS| {...});
 //! // impl_op!(op #[attr] |a: &mut LHS, b: &RHS| {...});
 //! // impl_op!(op, #[attr] |a: &mut LHS, b: RHS| {...});
@@ -89,7 +89,7 @@
 //! }
 //! ```
 //! ## Unary operators
-//! ```
+//! ```ignore
 //! // impl_op!(op #[attr] |a: LHS| -> OUT {...});
 //! // impl_op!(op #[attr] |a: &LHS| -> OUT {...});
 //! // impl_op!(op, #[attr] |a: LHS| -> OUT {...});
@@ -123,7 +123,7 @@
 //! ```
 //! ## Generics
 //! Any of the above forms can additionally be generic by putting generic params just before the lambda.
-//! ```
+//! ```ignore
 //! // impl_op!(op $[attr] <generic_params> |a: LHS, b: RHS| -> OUT {...});
 //! // where
 //! // generic_params: anything that would go just after an `impl`, including lifetimes and
@@ -155,7 +155,7 @@
 //! * Cannot put `where` clauses on the `impl`, all generic constraints must be in the generic parameters themselves.
 //! * Bare generics cannot be used as the type for the first argument in the lambda.
 //!
-//! ```compile_fail
+//! ```ignore
 //! // impl_op!(+ <T>|a: T, b: SomeType<T>| -> SomeType<T> {...}) // INVALID
 //! impl_op!(+ <T>|a: SomeType<T>, b: T| -> SomeType<T> {...})    // VALID
 //! impl_op!(+ |a: i32, b: SomeType<i32>| -> SomeType<i32> {...}) // VALID
@@ -274,7 +274,7 @@ macro_rules! _impl_op_internal {
 /// `impl_op_ex!(op |a: &LHS, b: &RHS| -> OUT {...});`
 /// gets expanded to
 ///
-/// ```compile_fail
+/// ```ignore
 /// impl_op!(op |a: LHS, b: RHS| -> OUT {...});
 /// impl_op!(op |a: LHS, b: &RHS| -> OUT {...});
 /// impl_op!(op |a: &LHS, b: RHS| -> OUT {...});
@@ -284,12 +284,12 @@ macro_rules! _impl_op_internal {
 /// and `impl_op_ex!(op |a: &LHS, b: RHS| -> OUT {...});`
 /// gets expanded to
 ///
-/// ```compile_fail
+/// ```ignore
 /// impl_op!(op |a: LHS, b: RHS| -> OUT {...});
 /// impl_op!(op |a: &LHS, b: RHS| -> OUT {...});
 /// ```
 /// # Examples
-/// ```
+/// ```ignore
 /// use auto_ops::impl_op_ex;
 /// # #[derive(Clone, Debug, PartialEq)]
 /// # struct DonkeyKong {
@@ -313,6 +313,7 @@ macro_rules! _impl_op_internal {
 ///     let total_bananas = DonkeyKong::new(2) + DonkeyKong::new(4);
 ///     assert_eq!(6, total_bananas);
 /// }
+/// ```
 macro_rules! impl_op_ex {
 	// For some reason $(,)? doesn't work here
 	($op:tt , $($args:tt)*) => {
@@ -394,21 +395,21 @@ macro_rules! _impl_op_ex_internal {
 ///
 /// An operator is commutative if A <op> B == B <op> A. Common commutative operators are `+` and `*`.
 ///
-/// ```compile_fail
+/// ```ignore
 /// impl_op_commutative!(op |a: LHS, b: RHS| -> OUT {...});
 /// // where LHS != RHS
 /// ```
 ///
 /// gets expanded to
 ///
-/// ```compile_fail
+/// ```ignore
 /// impl_op!(op |a: LHS, b: RHS| -> OUT {...});
 /// impl_op!(op |a: RHS, b: LHS| -> OUT {...});
 /// ```
 /// Make sure that LHS != RHS, and that the operator you are trying to overload is a commutative one.
 /// See the examples for what happens when you try `impl_op_commutative!` on the `-` operator (which isn't usually commutative).
 /// # Examples
-/// ```
+/// ```ignore
 /// use auto_ops::impl_op_commutative;
 /// # #[derive(Clone, Debug, PartialEq)]
 /// # struct DonkeyKong {
@@ -436,6 +437,7 @@ macro_rules! _impl_op_ex_internal {
 ///     // notice that in this case (5 - 1 == 4) and (1 - 5 == 1): that is the definition of a
 ///     // commutative operator, but probably not what you want for the '-' operator
 /// }
+/// ```
 macro_rules! impl_op_commutative {
 	// For some reason $(,)? doesn't work here
 	($op:tt , $($args:tt)*) => {
@@ -494,14 +496,14 @@ macro_rules! _impl_op_commutative_internal {
 ///
 /// Expands borrowed inputs to both borrowed and owned variants.
 ///
-/// ```compile_fail
+/// ```ignore
 /// impl_op_ex_commutative!(op |a: &LHS, b: &RHS| -> OUT {...});
 /// // where LHS != RHS
 /// ```
 ///
 /// gets expanded to
 ///
-/// ```compile_fail
+/// ```ignore
 /// impl_op!(op |a: &LHS, b: &RHS| -> OUT {...});
 /// impl_op!(op |a: &LHS, b: RHS| -> OUT {...});
 /// impl_op!(op |a: LHS, b: &RHS| -> OUT {...});
@@ -513,7 +515,7 @@ macro_rules! _impl_op_commutative_internal {
 /// impl_op!(op |a: RHS, b: LHS| -> OUT {...});
 /// ```
 /// # Examples
-/// ```
+/// ```ignore
 /// use auto_ops::impl_op_ex_commutative;
 /// # #[derive(Clone, Debug, PartialEq)]
 /// # struct DonkeyKong {
@@ -566,6 +568,7 @@ macro_rules! _impl_op_commutative_internal {
 ///     let total_bananas = 1 + DonkeyKong::new(5);
 ///     assert_eq!(6, total_bananas);
 /// }
+/// ```
 macro_rules! impl_op_ex_commutative {
 	// For some reason $(,)? doesn't work here
 	($op:tt , $($args:tt)*) => {

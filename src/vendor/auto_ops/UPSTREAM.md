@@ -10,3 +10,4 @@ The upstream source is copyright (c) 2019 Quy Nguyen and is licensed under the M
 - Removed upstream `#[macro_export]` declarations and used `#[macro_use]` on the internal modules so the macros remain scoped to this crate.
 - Adjusted helper macro invocations to work with lexical macro scoping.
 - Added scoped lint allowances for upstream macro definitions and arms that this crate does not use.
+- Marked upstream usage examples as ignored doctests where they depend on importing `auto_ops` as a separate crate; the vendored macros are intentionally crate-private.

@@ -5,7 +5,7 @@
 use core::ops;
 
 use num_integer::Integer;
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(test), not(feature = "std")))]
 use num_traits::float::FloatCore;
 use num_traits::{ToPrimitive, Zero};
 use paste::paste;
