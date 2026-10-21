@@ -117,6 +117,28 @@ struct TimeComponents {
 	nanosecond: u32,
 }
 
+trait CheckedAddDuration: Sized {
+	fn checked_add_duration(self, duration: chrono::Duration) -> Option<Self>;
+}
+
+impl CheckedAddDuration for chrono::NaiveDate {
+	fn checked_add_duration(self, duration: chrono::Duration) -> Option<Self> {
+		self.checked_add_signed(duration)
+	}
+}
+
+impl CheckedAddDuration for chrono::NaiveDateTime {
+	fn checked_add_duration(self, duration: chrono::Duration) -> Option<Self> {
+		self.checked_add_signed(duration)
+	}
+}
+
+impl<Tz: chrono::TimeZone> CheckedAddDuration for chrono::DateTime<Tz> {
+	fn checked_add_duration(self, duration: chrono::Duration) -> Option<Self> {
+		self.checked_add_signed(duration)
+	}
+}
+
 impl RelativeDelta {
 	fn time_duration(&self) -> chrono::TimeDelta {
 		chrono::Duration::days(self.days())
@@ -129,7 +151,7 @@ impl RelativeDelta {
 	/// Calculates the adjusted year, month, and day from a `RelativeDelta` and source date
 	#[allow(clippy::cast_possible_truncation)]
 	#[allow(clippy::cast_sign_loss)]
-	fn date_components<D: Datelike>(&self, source: &D) -> DateComponents {
+	fn date_components<D: Datelike>(&self, source: &D) -> Option<DateComponents> {
 		let mut year = self.year().unwrap_or(source.year().into()) + self.years();
 		let month = self.month().map_or(source.month().into(), MonthsType::from) + self.months();
 		let (mut extra_years, mut relative_month) = month.div_rem(&12);
@@ -142,11 +164,11 @@ impl RelativeDelta {
 		let num_days_in_month = u32::from(num_days_in_month(year, relative_month as MonthType));
 		let day = num_days_in_month.min(self.day().map_or(source.day(), u32::from));
 
-		DateComponents {
-			year: year as i32,
+		Some(DateComponents {
+			year: year.try_into().ok()?,
 			month: relative_month as u32,
 			day,
-		}
+		})
 	}
 
 	fn time_components<D: Timelike>(&self, source: &D) -> TimeComponents {
@@ -159,9 +181,9 @@ impl RelativeDelta {
 	}
 
 	/// Applies weekday adjustments to a result date
-	fn apply_weekday_adjustment<D>(&self, result: D) -> D
+	fn apply_weekday_adjustment<D>(&self, result: D) -> Option<D>
 	where
-		D: Datelike + ops::Add<chrono::Duration, Output = D>,
+		D: Datelike + CheckedAddDuration,
 	{
 		if let Some((weekday, nth)) = self.weekday() {
 			let mut jumpdays = (nth.abs() - 1) * 7;
@@ -176,10 +198,10 @@ impl RelativeDelta {
 				);
 				jumpdays *= -1;
 			}
-			result + chrono::Duration::days(jumpdays)
+			result.checked_add_duration(chrono::Duration::days(jumpdays))
 		}
 		else {
-			result
+			Some(result)
 		}
 	}
 }
@@ -193,11 +215,28 @@ impl<Tz: chrono::TimeZone> ops::Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 	#[allow(clippy::cast_possible_truncation)]
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::DateTime<Tz>) -> Self::Output {
+		self
+			.checked_add_datetime(rhs)
+			.expect("could not add RelativeDelta to datetime")
+	}
+}
+
+impl RelativeDelta {
+	/// Add this calendar delta without panicking on an unrepresentable result.
+	///
+	/// Returns `None` if the resulting date is outside the range supported by
+	/// `chrono`, if a timezone transition makes the local time ambiguous, or if
+	/// the duration overflows.
+	#[must_use]
+	pub fn checked_add_datetime<Tz: chrono::TimeZone>(
+		&self,
+		rhs: &chrono::DateTime<Tz>,
+	) -> Option<chrono::DateTime<Tz>> {
 		let DateComponents {
 			year,
 			month,
 			day,
-		} = self.date_components(rhs);
+		} = self.date_components(rhs)?;
 		let TimeComponents {
 			hour,
 			minute,
@@ -209,10 +248,9 @@ impl<Tz: chrono::TimeZone> ops::Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 			.timezone()
 			.with_ymd_and_hms(year, month, day, hour, minute, second)
 			.single()
-			.and_then(|d| d.with_nanosecond(nanosecond))
-			.expect("could not create datetime");
+			.and_then(|d| d.with_nanosecond(nanosecond))?;
 
-		let ret = datetime + self.time_duration();
+		let ret = datetime.checked_add_signed(self.time_duration())?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
@@ -318,11 +356,24 @@ impl ops::Add<&chrono::NaiveDateTime> for &RelativeDelta {
 	#[allow(clippy::cast_possible_truncation)]
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::NaiveDateTime) -> Self::Output {
+		self
+			.checked_add_naive_datetime(rhs)
+			.expect("could not add RelativeDelta to datetime")
+	}
+}
+
+impl RelativeDelta {
+	/// Add this calendar delta to a `chrono::NaiveDateTime` without panicking.
+	#[must_use]
+	pub fn checked_add_naive_datetime(
+		&self,
+		rhs: &chrono::NaiveDateTime,
+	) -> Option<chrono::NaiveDateTime> {
 		let DateComponents {
 			year,
 			month,
 			day,
-		} = self.date_components(rhs);
+		} = self.date_components(rhs)?;
 		let TimeComponents {
 			hour,
 			minute,
@@ -330,12 +381,10 @@ impl ops::Add<&chrono::NaiveDateTime> for &RelativeDelta {
 			nanosecond,
 		} = self.time_components(rhs);
 
-		let datetime = chrono::NaiveDate::from_ymd_opt(year, month, day)
-			.expect("could not create date")
-			.and_hms_nano_opt(hour, minute, second, nanosecond)
-			.expect("could not create datetime");
+		let datetime = chrono::NaiveDate::from_ymd_opt(year, month, day)?
+			.and_hms_nano_opt(hour, minute, second, nanosecond)?;
 
-		let ret = datetime + self.time_duration();
+		let ret = datetime.checked_add_signed(self.time_duration())?;
 
 		self.apply_weekday_adjustment(ret)
 	}
@@ -349,15 +398,25 @@ impl ops::Add<&chrono::NaiveDate> for &RelativeDelta {
 	#[allow(clippy::cast_possible_truncation)]
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::NaiveDate) -> Self::Output {
+		self
+			.checked_add_date(rhs)
+			.expect("could not add RelativeDelta to date")
+	}
+}
+
+impl RelativeDelta {
+	/// Add this calendar delta to a `chrono::NaiveDate` without panicking.
+	#[must_use]
+	pub fn checked_add_date(&self, rhs: &chrono::NaiveDate) -> Option<chrono::NaiveDate> {
 		let DateComponents {
 			year,
 			month,
 			day,
-		} = self.date_components(rhs);
+		} = self.date_components(rhs)?;
 
-		let date = chrono::NaiveDate::from_ymd_opt(year, month, day).expect("could not create date");
+		let date = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
 
-		let ret = date + chrono::Duration::days(self.days());
+		let ret = date.checked_add_signed(chrono::Duration::days(self.days()))?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
@@ -729,5 +788,23 @@ mod tests {
 		assert_eq!(naive_dt.minute(), 35);
 		assert_eq!(naive_dt.second(), 48);
 		Ok(())
+	}
+
+	#[test]
+	fn test_ergonomic_constructors_and_checked_add() {
+		let date = chrono::NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
+		let next_month = date + RelativeDelta::with_months(1).build();
+		assert_eq!(
+			next_month,
+			chrono::NaiveDate::from_ymd_opt(2024, 2, 29).unwrap()
+		);
+
+		let maximum = chrono::NaiveDate::MAX;
+		assert!(
+			RelativeDelta::with_days(1)
+				.build()
+				.checked_add_date(&maximum)
+				.is_none()
+		);
 	}
 }

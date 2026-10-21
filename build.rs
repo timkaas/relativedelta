@@ -26,12 +26,14 @@ fn main() {
 
 	println!("cargo:rustc-env=MSRV={}", msrv);
 
-	// Process README.md
-	if let Ok(readme) = fs::read_to_string("README.md") {
-		let updated = update_msrv_markers(&readme, msrv);
+	let files = vec!["README.md", "./src/lib.rs"];
+	for file in files {
+		if let Ok(content) = fs::read_to_string(file) {
+			let updated = update_msrv_markers(&content, msrv);
 
-		if updated != readme {
-			fs::write("README.md", updated).expect("Failed to write README.md");
+			if updated != content {
+				fs::write(file, updated).expect("Failed to write file");
+			}
 		}
 	}
 }

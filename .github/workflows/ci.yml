@@ -23,7 +23,7 @@ jobs:
     outputs:
       msrv: ${{ steps.msrv.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: msrv
         run: |
           MSRV=$(grep '^rust-version' Cargo.toml | grep -oP '\d+\.\d+\.\d+')
@@ -33,7 +33,7 @@ jobs:
     name: Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
@@ -47,7 +47,7 @@ jobs:
       matrix:
         feature: [ chrono, time, "\"chrono time\"", serde, std ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -63,7 +63,7 @@ jobs:
       matrix:
         feature: [ chrono, time, "\"chrono time\"", serde, std ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Run Cargo Check
         run: cargo check --features ${{ matrix.feature }}
@@ -83,13 +83,13 @@ jobs:
           - nightly
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Rust ${{ matrix.rust }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -111,7 +111,7 @@ jobs:
       issues: write
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         # Needed for audit-check@v2
       - name: generate Cargo.lock
         run: cargo generate-lockfile

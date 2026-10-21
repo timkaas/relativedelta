@@ -2,10 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ops;
-
-#[allow(clippy::wildcard_imports)]
-use impl_ops::*;
 use num_integer::Integer;
 
 use crate::RelativeDelta;
@@ -21,7 +17,7 @@ macro_rules! impl_add {
 	($fname:ident, $datetime:ty, $ctor:expr) => {
 		#[allow(clippy::cast_possible_truncation)]
 		#[allow(clippy::cast_sign_loss)]
-		fn $fname(lhs: &RelativeDelta, rhs: &$datetime) -> $datetime {
+		fn $fname(lhs: &RelativeDelta, rhs: &$datetime) -> Option<$datetime> {
 			let mut year = lhs.year().unwrap_or(rhs.year().into()) + lhs.years();
 			let month = lhs
 				.month()
@@ -47,20 +43,18 @@ macro_rules! impl_add {
 			let second = lhs.second().unwrap_or(rhs.second());
 			let nanosecond = lhs.nanosecond().unwrap_or(rhs.nanosecond());
 
-			let date =
-				time::Date::from_calendar_date(year as i32, month, day).expect("could not create date");
+			let date = time::Date::from_calendar_date(year.try_into().ok()?, month, day).ok()?;
 
-			let time =
-				time::Time::from_hms_nano(hour, minute, second, nanosecond).expect("could not create time");
+			let time = time::Time::from_hms_nano(hour, minute, second, nanosecond).ok()?;
 
 			let datetime = $ctor(date, time);
 
 			let ret = datetime
-				+ time::Duration::days(lhs.days())
-				+ time::Duration::hours(lhs.hours())
-				+ time::Duration::minutes(lhs.minutes())
-				+ time::Duration::seconds(lhs.seconds())
-				+ time::Duration::nanoseconds(lhs.nanoseconds());
+				.checked_add(time::Duration::days(lhs.days()))?
+				.checked_add(time::Duration::hours(lhs.hours()))?
+				.checked_add(time::Duration::minutes(lhs.minutes()))?
+				.checked_add(time::Duration::seconds(lhs.seconds()))?
+				.checked_add(time::Duration::nanoseconds(lhs.nanoseconds()))?;
 
 			if let Some((weekday, nth)) = lhs.weekday() {
 				let mut jumpdays = (nth.abs() - 1) * 7;
@@ -74,11 +68,12 @@ macro_rules! impl_add {
 					);
 					jumpdays *= -1;
 				}
-				ret + time::Duration::days(jumpdays)
+				ret.checked_add(time::Duration::days(jumpdays))?
 			}
 			else {
 				ret
 			}
+			.into()
 		}
 	};
 }
@@ -95,9 +90,35 @@ impl_add!(
 );
 impl_add!(add_utc, time::UtcDateTime, time::UtcDateTime::new);
 
-impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::PrimitiveDateTime| -> time::PrimitiveDateTime { add_primitive(lhs, rhs) });
-impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::OffsetDateTime| -> time::OffsetDateTime { add_offset(lhs, rhs) });
-impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::UtcDateTime| -> time::UtcDateTime { add_utc(lhs, rhs) });
+impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::PrimitiveDateTime| -> time::PrimitiveDateTime { add_primitive(lhs, rhs).expect("could not add RelativeDelta to datetime") });
+impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::OffsetDateTime| -> time::OffsetDateTime { add_offset(lhs, rhs).expect("could not add RelativeDelta to datetime") });
+impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::UtcDateTime| -> time::UtcDateTime { add_utc(lhs, rhs).expect("could not add RelativeDelta to datetime") });
+
+impl RelativeDelta {
+	/// Add this calendar delta to a `time::PrimitiveDateTime` without panicking.
+	#[must_use]
+	pub fn checked_add_primitive_datetime(
+		&self,
+		rhs: &time::PrimitiveDateTime,
+	) -> Option<time::PrimitiveDateTime> {
+		add_primitive(self, rhs)
+	}
+
+	/// Add this calendar delta to a `time::OffsetDateTime` without panicking.
+	#[must_use]
+	pub fn checked_add_offset_datetime(
+		&self,
+		rhs: &time::OffsetDateTime,
+	) -> Option<time::OffsetDateTime> {
+		add_offset(self, rhs)
+	}
+
+	/// Add this calendar delta to a `time::UtcDateTime` without panicking.
+	#[must_use]
+	pub fn checked_add_utc_datetime(&self, rhs: &time::UtcDateTime) -> Option<time::UtcDateTime> {
+		add_utc(self, rhs)
+	}
+}
 
 impl_op_ex!(
 	-|lhs: &time::PrimitiveDateTime, rhs: &RelativeDelta| -> time::PrimitiveDateTime { lhs + (-rhs) }
