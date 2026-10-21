@@ -188,7 +188,7 @@ let last_day = time::UtcDateTime::now() + RelativeDelta::with_day(1)
 #![deny(clippy::pedantic)]
 #![deny(deprecated)]
 #![deny(unused)]
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
 #[macro_use]
 mod vendor;
