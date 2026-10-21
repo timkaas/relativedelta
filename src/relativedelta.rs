@@ -4,9 +4,9 @@
 
 use core::ops;
 
-#[allow(clippy::wildcard_imports)]
-use impl_ops::*;
 use num_integer::Integer;
+#[cfg(not(feature = "std"))]
+use num_traits::float::FloatCore;
 use num_traits::{ToPrimitive, Zero};
 use paste::paste;
 
@@ -126,7 +126,7 @@ impl Builder {
 
 	/// Construct new `RelativeDelta`
 	///
-	/// Returns a fixed `RelativeDelta` where time parameters are within meaningfull boundaries.
+	/// Returns a fixed `RelativeDelta` where time parameters are within meaningful boundaries.
 	#[inline]
 	#[deprecated(
 		since = "0.3.0",
@@ -181,11 +181,11 @@ impl Builder {
 	///
 	/// # Arguments
 	/// * `year` - Optional year to set. If None, the year is not set.
-	/// * `years` - Relative years to add or substract.
+	/// * `years` - Relative years to add or subtract.
 	/// * `month` - Optional month to set. If None, the month is not set.
-	/// * `months` - Relative months to add or substract.
+	/// * `months` - Relative months to add or subtract.
 	/// * `day` - Optional day to set. If None, the day is not set.
-	/// * `days` - Relative days to add or substract.
+	/// * `days` - Relative days to add or subtract.
 	///
 	/// # Returns
 	/// Self by value to further chain value-setting calls using the `and_*()` methods on the builder.
@@ -227,11 +227,11 @@ impl Builder {
 	///
 	/// # Arguments
 	/// * `hour` - Optional hour to set. If None, the hour is not set.
-	/// * `hours` - Relative hours to add or substract.
+	/// * `hours` - Relative hours to add or subtract.
 	/// * `minute` - Optional minute to set. If None, the minute is not set.
-	/// * `minutes` - Relative minutes to add or substract.
+	/// * `minutes` - Relative minutes to add or subtract.
 	/// * `second` - Optional second to set. If None, the second is not set.
-	/// * `seconds` - Relative seconds to add or substract.
+	/// * `seconds` - Relative seconds to add or subtract.
 	///
 	/// # Returns
 	/// Self by value to further chain value-setting calls using the `and_*()` methods on the builder.
@@ -430,7 +430,7 @@ impl Builder {
 /// Implemented operators
 /// ```
 /// # use relativedelta::{RelativeDelta, Weekday};
-/// // Two or more RelativeDeltas can be added and substracted. However, note that constants are lost in the process.
+/// // Two or more RelativeDeltas can be added and subtracted. However, note that constants are lost in the process.
 /// let lhs = RelativeDelta::yysmmsdds(Some(2020), -4, Some(1), 3, None, 0).build();
 /// let rhs = RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 42, None, 0).build();
 /// assert_eq!(lhs + rhs, RelativeDelta::with_years(-3).and_months(45).build());
@@ -673,13 +673,13 @@ impl RelativeDelta {
 	/// This method normalizes the parameters and fixes them to be within meaningful boundaries.
 	/// The method is mainly used when multiplying a `RelativeDelta` with a f64, as it allows for fractional years, months, days, hours, minutes and seconds.
 	/// # Arguments
-	/// * `years` - The number of years to add or substract.
-	/// * `months` - The number of months to add or substract.
-	/// * `days` - The number of days to add or substract.
-	/// * `hours` - The number of hours to add or substract.
-	/// * `minutes` - The number of minutes to add or substract.
-	/// * `seconds` - The number of seconds to add or substract.
-	/// * `nanoseconds` - The number of nanoseconds to add or substract.
+	/// * `years` - The number of years to add or subtract.
+	/// * `months` - The number of months to add or subtract.
+	/// * `days` - The number of days to add or subtract.
+	/// * `hours` - The number of hours to add or subtract.
+	/// * `minutes` - The number of minutes to add or subtract.
+	/// * `seconds` - The number of seconds to add or subtract.
+	/// * `nanoseconds` - The number of nanoseconds to add or subtract.
 	/// # Returns
 	/// A `RelativeDelta` builder with all parameters set to the given values.
 	/// # Examples
@@ -711,11 +711,11 @@ impl RelativeDelta {
 	/// Convenience construction of a `RelativeDelta` (Builder) with only date parameters
 	/// # Arguments
 	/// * `year` - Optional year to set. If None, the year is not set.
-	/// * `years` - Relative years to add or substract.
+	/// * `years` - Relative years to add or subtract.
 	/// * `month` - Optional month to set. If None, the month is not set.
-	/// * `months` - Relative months to add or substract.
+	/// * `months` - Relative months to add or subtract.
 	/// * `day` - Optional day to set. If None, the day is not set.
-	/// * `days` - Relative days to add or substract.
+	/// * `days` - Relative days to add or subtract.
 	/// # Returns
 	/// A `RelativeDelta` builder with all date parameters set to the given values.
 	/// # Examples
@@ -753,11 +753,11 @@ impl RelativeDelta {
 	/// Convenience construction of a `RelativeDelta` (Builder) with only time parameters
 	/// # Arguments
 	/// * `hour` - Optional hour to set. If None, the hour is not set.
-	/// * `hours` - Relative hours to add or substract.
+	/// * `hours` - Relative hours to add or subtract.
 	/// * `minute` - Optional minute to set. If None, the minute is not set.
-	/// * `minutes` - Relative minutes to add or substract.
+	/// * `minutes` - Relative minutes to add or subtract.
 	/// * `second` - Optional second to set. If None, the second is not set.
-	/// * `seconds` - Relative seconds to add or substract.
+	/// * `seconds` - Relative seconds to add or subtract.
 	/// # Returns
 	/// A `RelativeDelta` builder with all time parameters set to the given values.
 	/// # Examples
@@ -1073,15 +1073,15 @@ mod tests {
 
 	#[test]
 	#[cfg(feature = "serde")]
-	fn test_deserialize() {
+	fn test_deserialize() -> anyhow::Result<()> {
 		use serde_json::json;
 
 		let rd = RelativeDelta::with_years(1)
 			.and_months(2)
 			.and_days(3)
 			.build();
-		let serialized = serde_json::to_string(&rd).unwrap();
-		let deserialized: RelativeDelta = serde_json::from_str(&serialized).unwrap();
+		let serialized = serde_json::to_string(&rd)?;
+		let deserialized: RelativeDelta = serde_json::from_str(&serialized)?;
 		assert_eq!(rd, deserialized);
 
 		let json_data = json!({
@@ -1089,7 +1089,7 @@ mod tests {
 			"months": 2,
 			"days": 3
 		});
-		let deserialized_from_json: RelativeDelta = serde_json::from_value(json_data).unwrap();
+		let deserialized_from_json: RelativeDelta = serde_json::from_value(json_data)?;
 		assert_eq!(rd, deserialized_from_json);
 
 		let json_data = json!({
@@ -1099,12 +1099,27 @@ mod tests {
 			"hours": 5,
 			"minutes": -65,
 		});
-		let deserialized_from_json: RelativeDelta = serde_json::from_value(json_data).unwrap();
+		let deserialized_from_json: RelativeDelta = serde_json::from_value(json_data)?;
 		assert_eq!(deserialized_from_json.years, 2);
 		assert_eq!(deserialized_from_json.months, 3);
 		assert_eq!(deserialized_from_json.days, 3);
 		assert_eq!(deserialized_from_json.hours, 4);
 		assert_eq!(deserialized_from_json.minutes, -5);
+
+		let json_data = json!({
+			"years": 1,
+			"days": -1,
+			"day": 1,
+		});
+		let deserialized_from_json: RelativeDelta = serde_json::from_value(json_data.clone())?;
+		assert_eq!(deserialized_from_json.years, 1);
+		assert_eq!(deserialized_from_json.months, 0);
+		assert_eq!(deserialized_from_json.days, -1);
+
+		let json = serde_json::to_value(&deserialized_from_json)?;
+		assert_eq!(json, json_data);
+
+		Ok(())
 	}
 
 	#[test]

@@ -7,7 +7,7 @@ relativedelta
 [![crates.io](https://img.shields.io/crates/v/relativedelta?style=flat-square)](https://crates.io/crates/relativedelta)
 [![docs.rs](https://img.shields.io/badge/documentation-docs.rs-orange.svg?style=flat-square)](https://docs.rs/relativedelta/)
 
-> **Handle complex date arithmetic seamlessly.** Add or subtract months and years without off-by-one errors, target specific weekdays, or lock dates to particular months. A better alternative to `Duration` for semantic calendar operations.
+> **Calendar-aware date arithmetic for Rust.** Add or subtract months and years without off-by-one errors, clamp month ends, target weekdays, and express recurring dates clearly. A better alternative to `Duration` for calendar operations.
 >
 > Works with [chrono](https://crates.io/crates/chrono) and [time](https://crates.io/crates/time) crates. Inspired by [Python's dateutil.relativedelta](https://pypi.org/project/python-dateutil/).
 
@@ -27,12 +27,16 @@ relativedelta
 
 ## Usage
 
-Run `cargo add relativedelta` to add this crate to your project or put this in your `Cargo.toml`:
+For `chrono`:
 
 ```toml
 [dependencies]
-relativedelta = "0.3"
+relativedelta = { version = "0.3", features = ["chrono"] }
 ```
+
+For the `time` crate, use `features = ["time"]` instead. The crate itself is
+feature-free by default so it can be used to construct deltas without choosing
+a datetime backend.
 
 ### Minimum Supported Rust Version (MSRV)
 
@@ -65,7 +69,7 @@ Relative parts are manipulated and accessed through methods typically ending in 
 `.and_days`).
 Absolute values without "*s*" (e.g. `::with_year`, `.and_day`).
 
-All relative values represents an offset to date and time and therefore can take on both positive and negative values,
+All relative values represent an offset to date and time and therefore can take on both positive and negative values,
 and can take on any value within its datatypes limitations. On construction, a **Builder** will attempt to aggregate
 values
 up, so e.g. if *hours* are not in the range \[-23;23]\, the final instance will be updated to instead add or subtract
@@ -73,7 +77,7 @@ extra
 *days*, with only the remainder as *hours*.
 All offsets are set to zero as default.
 
-Absolute values represents an explicit *year*, *month*, *day* and so on. So if one e.g. always seeks a certain day in a
+Absolute values represent an explicit *year*, *month*, *day* and so on. So if one e.g. always seeks a certain day in a
 month, one would use the `::with_day()` or `.and_day()` method. All absolute values are **Options** and defaults to
 `None`.
 
@@ -128,7 +132,35 @@ let deadline = today
 
 ### Examples
 
-Here are some examples of how to use the RelativeDelta library:
+Here is the core use case:
+
+```rust
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let date = NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
+let next_month = date + RelativeDelta::add_months(1).build();
+
+assert_eq!(next_month, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap());
+```
+
+Unlike a fixed-length `Duration`, adding a calendar month understands that
+February has no 31st day.
+
+When the result may be outside the supported datetime range, use the
+backend-specific checked method instead of the `+` operator:
+
+```rust
+let result = RelativeDelta::add_months(1)
+    .build()
+    .checked_add_date(&date);
+```
+
+The operator remains convenient for ordinary calculations and preserves the
+existing API; checked methods return `None` instead of panicking on overflow or
+an invalid result.
+
+Here are more examples:
 
 #### Basic Construction
 
@@ -246,7 +278,7 @@ let third_tuesday_next_month = RelativeDelta::with_months(1)
 .build();
 ```
 
-For more examples, see [examples](new_examples.md).
+For more examples, see the [cookbook](docs/cookbook.md).
 
 ## Guides
 

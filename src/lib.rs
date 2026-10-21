@@ -10,12 +10,12 @@
 //!
 //! ```toml
 //! [dependencies]
-//! relativedelta = "0.3"
+//! relativedelta = { version = "0.3", features = ["chrono"] }
 //! ```
 //!
 //! ### Minimum Supported Rust Version (MSRV)
 //!
-//! This crate supports Rust 1.85.0 or later.
+//! This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
 //!
 //! ### Optional features
 //!
@@ -33,7 +33,7 @@
 //! `.and_days`).
 //! Absolute values without "*s*" (e.g. `::with_year`, `.and_day`).
 //!
-//! All relative values represents an offset to date and time and therefore can take on both positive and negative values,
+//! All relative values represent an offset to date and time and therefore can take on both positive and negative values,
 //! and can take on any value within its datatypes limitations. On construction, a **Builder** will attempt to aggregate
 //! values
 //! up, so e.g. if *hours* are not in the range \[-23;23]\, the final instance will be updated to instead add or subtract
@@ -41,7 +41,7 @@
 //! *days*, with only the remainder as *hours*.
 //! All offsets are set to zero as default.
 //!
-//! Absolute values represents an explicit *year*, *month*, *day* and so on. So if one e.g. always seeks a certain day in a
+//! Absolute values represent an explicit *year*, *month*, *day* and so on. So if one e.g. always seeks a certain day in a
 //! month, one would use the `::with_day()` or `.and_day()` method. All absolute values are **Options** and defaults to
 //! `None`.
 //!
@@ -189,6 +189,9 @@ let last_day = time::UtcDateTime::now() + RelativeDelta::with_day(1)
 #![deny(deprecated)]
 #![deny(unused)]
 #![cfg_attr(not(test), no_std)]
+
+#[macro_use]
+mod vendor;
 
 /// `RelativeDelta` is a relative date time representation for smart date calculations.
 pub mod relativedelta;
