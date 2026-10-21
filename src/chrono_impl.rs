@@ -793,7 +793,7 @@ mod tests {
 	#[test]
 	fn test_ergonomic_constructors_and_checked_add() {
 		let date = chrono::NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
-		let next_month = date + RelativeDelta::add_months(1).build();
+		let next_month = date + RelativeDelta::with_months(1).build();
 		assert_eq!(
 			next_month,
 			chrono::NaiveDate::from_ymd_opt(2024, 2, 29).unwrap()
@@ -801,7 +801,7 @@ mod tests {
 
 		let maximum = chrono::NaiveDate::MAX;
 		assert!(
-			RelativeDelta::add_days(1)
+			RelativeDelta::with_days(1)
 				.build()
 				.checked_add_date(&maximum)
 				.is_none()
