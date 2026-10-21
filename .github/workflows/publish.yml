@@ -18,7 +18,7 @@ jobs:
       issues: write
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         # Needed for audit-check@v2
       - name: generate Cargo.lock
         run: cargo generate-lockfile
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@nextest
@@ -46,7 +46,7 @@ jobs:
       - name: Prepare symlink configuration
         run: git config --global core.symlinks true
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@nextest
@@ -64,10 +64,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: false
           prerelease: false
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
 
       - name: cargo login
