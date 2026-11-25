@@ -7,9 +7,9 @@ use core::ops;
 use chrono::{Datelike, Timelike};
 use num_integer::Integer;
 
-use crate::RelativeDelta;
 use crate::from_error::FromError;
 use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
+use crate::{RelativeDelta, Weekday};
 
 macro_rules! impl_add_sub {
 	($base:ty, $ret:ty) => {
@@ -186,19 +186,10 @@ impl RelativeDelta {
 		D: Datelike + CheckedAddDuration,
 	{
 		if let Some((weekday, nth)) = self.weekday() {
-			let mut jumpdays = (nth.abs() - 1) * 7;
-			if nth > 0 {
-				jumpdays += i64::from(
-					7 - result.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
-				);
-			}
-			else {
-				jumpdays += i64::from(
-					(result.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
-				);
-				jumpdays *= -1;
-			}
-			result.checked_add_duration(chrono::Duration::days(jumpdays))
+			let current = Weekday::from(u8::try_from(result.weekday().num_days_from_monday()).ok()?);
+			result.checked_add_duration(chrono::Duration::try_days(
+				weekday.jump_days_from(current, nth),
+			)?)
 		}
 		else {
 			Some(result)
@@ -788,6 +779,27 @@ mod tests {
 		assert_eq!(naive_dt.minute(), 35);
 		assert_eq!(naive_dt.second(), 48);
 		Ok(())
+	}
+
+	#[test]
+	fn test_weekday_follows_dateutil() {
+		let monday = chrono::NaiveDate::from_ymd_opt(2021, 5, 3).unwrap();
+		let day = |d| chrono::NaiveDate::from_ymd_opt(2021, 5, d).unwrap();
+		let with_weekday = |weekday, nth| RelativeDelta::with_weekday(weekday, nth).build();
+		// The date itself is the first occurrence of its own weekday, in either direction.
+		assert_eq!(monday + with_weekday(Weekday::Mon, 1), monday);
+		assert_eq!(monday + with_weekday(Weekday::Mon, -1), monday);
+		assert_eq!(monday + with_weekday(Weekday::Mon, 2), day(10));
+		assert_eq!(monday + with_weekday(Weekday::Tue, 1), day(4));
+		assert_eq!(
+			monday + with_weekday(Weekday::Tue, -1),
+			chrono::NaiveDate::from_ymd_opt(2021, 4, 27).unwrap()
+		);
+		assert!(
+			with_weekday(Weekday::Mon, i64::MAX)
+				.checked_add_date(&monday)
+				.is_none()
+		);
 	}
 
 	#[test]

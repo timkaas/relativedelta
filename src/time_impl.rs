@@ -4,9 +4,9 @@
 
 use num_integer::Integer;
 
-use crate::RelativeDelta;
 use crate::from_error::FromError;
 use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
+use crate::{RelativeDelta, Weekday};
 
 unsafe fn month_unchecked(month: MonthType) -> time::Month {
 	// Safety: `month` is guaranteed to be in the range 1..=12
@@ -57,18 +57,9 @@ macro_rules! impl_add {
 				.checked_add(time::Duration::nanoseconds(lhs.nanoseconds()))?;
 
 			if let Some((weekday, nth)) = lhs.weekday() {
-				let mut jumpdays = (nth.abs() - 1) * 7;
-				if nth > 0 {
-					jumpdays +=
-						i64::from(7 - ret.weekday().number_days_from_monday() + weekday.num_days_from_monday());
-				}
-				else {
-					jumpdays += i64::from(
-						(ret.weekday().number_days_from_monday() - weekday.num_days_from_monday()) % 7,
-					);
-					jumpdays *= -1;
-				}
-				ret.checked_add(time::Duration::days(jumpdays))?
+				let current = Weekday::from(ret.weekday().number_days_from_monday());
+				let jump_seconds = weekday.jump_days_from(current, nth).checked_mul(86_400)?;
+				ret.checked_add(time::Duration::seconds(jump_seconds))?
 			}
 			else {
 				ret
@@ -347,6 +338,29 @@ mod tests {
 		assert_eq!(
 			dt - sub_47_months,
 			primitive_ymd_hmsn(2024, 3, day, hour, min, sec, 0)?
+		);
+		Ok(())
+	}
+
+	#[test]
+	fn test_weekday_follows_dateutil() -> anyhow::Result<()> {
+		let monday = primitive_ymd_hmsn(2021, 5, 3, 0, 0, 0, 0)?;
+		let with_weekday = |weekday, nth| RelativeDelta::with_weekday(weekday, nth).build();
+		// The date itself is the first occurrence of its own weekday, in either direction.
+		assert_eq!(monday + with_weekday(Weekday::Mon, 1), monday);
+		assert_eq!(monday + with_weekday(Weekday::Mon, -1), monday);
+		assert_eq!(
+			monday + with_weekday(Weekday::Mon, 2),
+			primitive_ymd_hmsn(2021, 5, 10, 0, 0, 0, 0)?
+		);
+		assert_eq!(
+			monday + with_weekday(Weekday::Tue, -1),
+			primitive_ymd_hmsn(2021, 4, 27, 0, 0, 0, 0)?
+		);
+		assert!(
+			with_weekday(Weekday::Mon, i64::MAX)
+				.checked_add_primitive_datetime(&monday)
+				.is_none()
 		);
 		Ok(())
 	}
