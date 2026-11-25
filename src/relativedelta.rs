@@ -938,6 +938,30 @@ pub fn num_days_in_month(year: YearType, month: MonthType) -> DayType {
 	time_core::util::days_in_month(month, year as i32)
 }
 
+/// Calculate the number of days in a month
+/// # Arguments
+/// * `year` - The year of the month, within jiff's range of -9999 to 9999
+/// * `month` - The month of the year (1-12)
+/// # Returns
+/// The number of days in the month, or 0 if the month is invalid (e.g. 13) or the year is outside
+/// jiff's range.
+/// # Examples
+/// ```
+/// # use relativedelta::relativedelta::num_days_in_month;
+/// assert_eq!(num_days_in_month(2020, 1), 31); // January
+/// assert_eq!(num_days_in_month(2020, 2), 29); // February in a leap year
+/// assert_eq!(num_days_in_month(2021, 2), 28); // February in a non-leap year
+/// ```
+#[cfg(all(feature = "jiff", not(feature = "chrono"), not(feature = "time")))]
+#[must_use]
+pub fn num_days_in_month(year: YearType, month: MonthType) -> DayType {
+	i16::try_from(year)
+		.ok()
+		.zip(i8::try_from(month).ok())
+		.and_then(|(year, month)| jiff::civil::Date::new(year, month, 1).ok())
+		.map_or(0, |first| first.days_in_month().unsigned_abs())
+}
+
 impl_op_ex!(-|rhs: &RelativeDelta| -> RelativeDelta {
 	RelativeDelta {
 		years: -rhs.years,
@@ -1019,7 +1043,7 @@ mod tests {
 		assert_eq!(negated.years, -1);
 	}
 	#[test]
-	#[cfg(any(feature = "time", feature = "chrono"))]
+	#[cfg(any(feature = "time", feature = "chrono", feature = "jiff"))]
 	fn test_num_days_in_month() {
 		assert_eq!(num_days_in_month(2000, 1), 31);
 		// Year 2000 was a leap year

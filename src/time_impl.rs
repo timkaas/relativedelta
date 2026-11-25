@@ -6,6 +6,7 @@ use num_integer::Integer;
 
 use crate::from_error::FromError;
 use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
+use crate::shift::sealed::Shift;
 use crate::{RelativeDelta, Weekday};
 
 unsafe fn month_unchecked(month: MonthType) -> time::Month {
@@ -118,6 +119,24 @@ impl_op_ex!(
 	-|lhs: &time::OffsetDateTime, rhs: &RelativeDelta| -> time::OffsetDateTime { lhs + (-rhs) }
 );
 impl_op_ex!(-|lhs: &time::UtcDateTime, rhs: &RelativeDelta| -> time::UtcDateTime { lhs + (-rhs) });
+
+impl Shift for time::PrimitiveDateTime {
+	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
+		add_primitive(delta, self)
+	}
+}
+
+impl Shift for time::OffsetDateTime {
+	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
+		add_offset(delta, self)
+	}
+}
+
+impl Shift for time::UtcDateTime {
+	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
+		add_utc(delta, self)
+	}
+}
 
 impl TryFrom<RelativeDelta> for time::PrimitiveDateTime {
 	type Error = FromError;
@@ -359,8 +378,29 @@ mod tests {
 		);
 		assert!(
 			with_weekday(Weekday::Mon, i64::MAX)
-				.checked_add_primitive_datetime(&monday)
+				.checked_add(&monday)
 				.is_none()
+		);
+		Ok(())
+	}
+
+	#[test]
+	fn test_checked_add_is_backend_agnostic() -> anyhow::Result<()> {
+		let datetime = primitive_ymd_hmsn(2024, 1, 31, 12, 0, 0, 0)?;
+		let next_month = RelativeDelta::with_months(1).build();
+		assert_eq!(
+			next_month.checked_add(&datetime),
+			next_month.checked_add_primitive_datetime(&datetime)
+		);
+		let offset = datetime.assume_utc();
+		assert_eq!(
+			next_month.checked_add(&offset),
+			next_month.checked_add_offset_datetime(&offset)
+		);
+		let utc = datetime.as_utc();
+		assert_eq!(
+			next_month.checked_add(&utc),
+			next_month.checked_add_utc_datetime(&utc)
 		);
 		Ok(())
 	}

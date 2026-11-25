@@ -139,7 +139,7 @@ impl Weekday {
 	/// Returns the signed number of days from a date falling on `current` to the `nth` occurrence of
 	/// `self`, following dateutil: the date itself counts as the first occurrence in either
 	/// direction, a negative `nth` searches backwards, and an `nth` of 0 behaves as 1.
-	#[cfg(any(feature = "chrono", feature = "time"))]
+	#[cfg(any(feature = "chrono", feature = "time", feature = "jiff"))]
 	pub(crate) fn jump_days_from(self, current: Self, nth: i64) -> i64 {
 		let extra_weeks = (nth.saturating_abs().max(1) - 1).saturating_mul(7);
 		if nth >= 0 {
@@ -224,7 +224,7 @@ mod tests {
 	use super::*;
 
 	#[test]
-	#[cfg(any(feature = "chrono", feature = "time"))]
+	#[cfg(any(feature = "chrono", feature = "time", feature = "jiff"))]
 	fn test_jump_days_from() {
 		use Weekday::{Fri, Mon, Tue, Wed};
 		// Forward: the current day counts as the first occurrence.
