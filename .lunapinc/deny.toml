@@ -1,0 +1,52 @@
+# Synced from LunaPinc/standards (stacks/base/files/.lunapinc/deny.toml) by sync/sync.sh; edit it there.
+# LunaPinc's dependency policy: licences, advisories and sources. cargo-deny reads all of it (the rust
+# stack's pre-push hook); .lunapinc/node-licences reads the licence allowlist below, so keep it one
+# quoted SPDX identifier per line.
+
+[graph]
+all-features = true
+
+[advisories]
+# Vulnerabilities and unsound code fail everywhere; an unmaintained crate fails only when the
+# workspace depends on it directly.
+unmaintained = "workspace"
+# Every open advisory fails. An ignore names the advisory, the reason and a review date, and gets a
+# line in the affected repo's DECISIONS.md:
+#   { id = "RUSTSEC-0000-0000", reason = "…; review 2027-01-01" },
+ignore = []
+
+[licenses]
+allow = [
+	"0BSD",
+	"Apache-2.0",
+	"Apache-2.0 WITH LLVM-exception",
+	"BlueOak-1.0.0",
+	"BSD-2-Clause",
+	"BSD-3-Clause",
+	"CC-BY-4.0",
+	"CC0-1.0",
+	"CDLA-Permissive-2.0",
+	"ISC",
+	"MIT",
+	"MPL-2.0",
+	"Python-2.0",
+	"Unicode-3.0",
+	"Zlib",
+]
+confidence-threshold = 0.93
+
+[licenses.private]
+# Workspace crates with `publish = false` aren't distributed, so they need no licence.
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+
+[sources.allow-org]
+github = ["LunaPinc"]
