@@ -1063,6 +1063,10 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(
+		clippy::float_cmp,
+		reason = "the builder leaves months_f at exactly 0.0"
+	)]
 	fn test_with() {
 		let months6 = RelativeDelta::with_months(12).and_months(6).build();
 		assert_eq!(months6.months, 6);
@@ -1140,7 +1144,7 @@ mod tests {
 		assert_eq!(deserialized_from_json.months, 0);
 		assert_eq!(deserialized_from_json.days, -1);
 
-		let json = serde_json::to_value(&deserialized_from_json)?;
+		let json = serde_json::to_value(deserialized_from_json)?;
 		assert_eq!(json, json_data);
 
 		Ok(())
