@@ -316,3 +316,24 @@ mod tests {
 		assert!(empty.is_empty())
 	}
 }
+
+/// Compiles and runs the code blocks of the README and guides as doctests, so they can't drift from
+/// the API. They use every backend, so they run only with all features enabled.
+#[cfg(all(
+	doctest,
+	feature = "chrono",
+	feature = "time",
+	feature = "jiff",
+	feature = "serde",
+	feature = "std"
+))]
+mod markdown_doctests {
+	#[doc = include_str!("../README.md")]
+	struct Readme;
+
+	#[doc = include_str!("../docs/cookbook.md")]
+	struct Cookbook;
+
+	#[doc = include_str!("../docs/vs-duration.md")]
+	struct VsDuration;
+}

@@ -59,7 +59,7 @@ This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
 |---------|-------------------|----------------|
 | **Add 1 month to Jan 31** | ❌ Breaks (Feb 31 doesn't exist) | ✅ Automatically clamps to Feb 28/29 |
 | **Get last day of month** | ❌ Manual: `date + months(1) - days(1)` | ✅ Simple: `.and_day(1).and_months(1).and_days(-1)` |
-| **Find 2nd Tuesday next quarter** | ❌ Complex date math + weekday logic | ✅ Direct: `.and_months(3).and_weekday(Some(Weekday::Tue, 2))` |
+| **Find 2nd Tuesday next quarter** | ❌ Complex date math + weekday logic | ✅ Direct: `.and_months(3).and_day(Some(1)).and_weekday(Some((Weekday::Tue, 2)))` |
 | **Salary review in 1 month** | ❌ Naive addition fails on month boundaries | ✅ Semantic: `.and_months(1)` respects calendar |
 
 ## Overview
@@ -85,52 +85,64 @@ month, one would use the `::with_day()` or `.and_day()` method. All absolute val
 `None`.
 
 `RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to e.g.
-ask for the second tuesday one year from today,
-with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Some(Weekday::Tue, 2)).build()`.
+ask for the second Tuesday on or after the same date next year,
+with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Some((Weekday::Tue, 2))).build()`.
 
 ### Real-World Examples
 
 #### HR & Payroll
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-// Calculate salary review date (1 month from hire date)
-let hire_date = Utc::now();
+let hire_date = NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
+
+// Salary review one month after hiring; February has no 31st, so the day is clamped
 let salary_review = hire_date + RelativeDelta::with_months(1).build();
+assert_eq!(salary_review, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap());
 
-// Get last day of month for monthly closing
-let last_day_of_month = Utc::now() 
-    + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+// Last day of the month, for the monthly closing
+let month_end = hire_date + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+assert_eq!(month_end, NaiveDate::from_ymd_opt(2024, 1, 31).unwrap());
 ```
 
 #### Finance & Recurring Billing
 
 ```rust
-// Monthly charge on day 15 (even if current month has < 15 days)
-let today = Utc::now();
-let next_charge = today + RelativeDelta::with_months(1).and_day(Some(15)).build();
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
 
-// Quarterly reporting (3 months forward)
+let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+
+// Next monthly charge, always on the 15th
+let next_charge = today + RelativeDelta::with_months(1).and_day(Some(15)).build();
+assert_eq!(next_charge, NaiveDate::from_ymd_opt(2024, 4, 15).unwrap());
+
+// Quarterly reporting, three months forward
 let next_quarter = today + RelativeDelta::with_months(3).build();
+assert_eq!(next_quarter, NaiveDate::from_ymd_opt(2024, 6, 20).unwrap());
 ```
 
 #### Scheduling & Deadlines
 
 ```rust
-// Find 2nd Tuesday of next month
-let second_tuesday_next_month = today 
+use chrono::NaiveDate;
+use relativedelta::{RelativeDelta, Weekday};
+
+let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+
+// Second Tuesday of next month
+let second_tuesday = today
     + RelativeDelta::with_months(1)
+        .and_day(Some(1))
         .and_weekday(Some((Weekday::Tue, 2)))
         .build();
+assert_eq!(second_tuesday, NaiveDate::from_ymd_opt(2024, 4, 9).unwrap());
 
-// Deadline: last working day of month
-let deadline = today 
-    + RelativeDelta::with_day(1)
-        .and_months(1)
-        .and_days(-1)
-        .build();
+// Deadline on the last day of the month
+let deadline = today + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+assert_eq!(deadline, NaiveDate::from_ymd_opt(2024, 3, 31).unwrap());
 ```
 
 ### Examples
@@ -142,7 +154,7 @@ use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
 
 let date = NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
-let next_month = date + RelativeDelta::add_months(1).build();
+let next_month = date + RelativeDelta::with_months(1).build();
 
 assert_eq!(next_month, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap());
 ```
@@ -152,56 +164,50 @@ February has no 31st day.
 
 When the result may be outside the supported datetime range, use
 `checked_add` instead of the `+` operator. It works with every supported type of
-every backend:
+every backend, and returns `None` instead of panicking on overflow or an invalid
+result:
 
 ```rust
-let result = RelativeDelta::add_months(1)
-    .build()
-    .checked_add(&date);
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let one_month = RelativeDelta::with_months(1).build();
+assert_eq!(
+    one_month.checked_add(&NaiveDate::from_ymd_opt(2024, 1, 31).unwrap()),
+    NaiveDate::from_ymd_opt(2024, 2, 29)
+);
+assert_eq!(one_month.checked_add(&NaiveDate::MAX), None);
 ```
-
-The operator remains convenient for ordinary calculations and preserves the
-existing API; checked methods return `None` instead of panicking on overflow or
-an invalid result.
-
-Here are more examples:
 
 #### Basic Construction
 
-Create a RelativeDelta representing 1 year:
-
 ```rust
+use relativedelta::RelativeDelta;
+
+// 1 year
 let years1 = RelativeDelta::with_years(1).build();
-```
 
-Create a RelativeDelta representing 12 months (equivalent to 1 year):
-
-```rust
+// 12 months, which is the same as 1 year
 let months12 = RelativeDelta::with_months(12).build();
-```
+assert_eq!(months12, years1);
 
-Combining relative values:
-
-```rust
+// Relative values combine
 let one_year_32_days = RelativeDelta::with_years(1).and_days(32).build();
-```
+assert_eq!(one_year_32_days.days(), 32);
 
-If the same parameter is specified twice, only the latest is applied:
-
-```rust
+// If the same parameter is set twice, the latest wins
 let months6 = RelativeDelta::with_months(12).and_months(6).build();
-```
+assert_eq!(months6, RelativeDelta::with_months(6).build());
 
-Combining absolute and relative values:
-
-```rust
-// Set year to 2020, add 1 year, set month to January, add 3 months, add 12 days
+// Absolute and relative values combine: set the year to 2020 and add 1 year,
+// set the month to January and add 3 months, then add 12 days
 let complex = RelativeDelta::with_year(2020)
-.and_years(1)
-.and_month(Some(1))
-.and_months(3)
-.and_days(12)
-.build();
+    .and_years(1)
+    .and_month(Some(1))
+    .and_months(3)
+    .and_days(12)
+    .build();
+assert_eq!(complex.year(), Some(2020));
 ```
 
 #### Operations Between RelativeDelta Instances
@@ -209,24 +215,23 @@ let complex = RelativeDelta::with_year(2020)
 Addition and subtraction (note that absolute values are lost in these operations):
 
 ```rust
-let delta1 = RelativeDelta::with_years( - 4).and_months(3).build();
+use relativedelta::RelativeDelta;
+
+let delta1 = RelativeDelta::with_years(-4).and_months(3).build();
 let delta2 = RelativeDelta::with_years(1).and_months(42).build();
 
-// Addition
-let sum = delta1 + delta2; // RelativeDelta::with_years(-3).and_months(45).build()
-
-// Subtraction
-let diff = delta1 - delta2; // RelativeDelta::with_years(-5).and_months(-39).build()
-
-// Negation and addition
-let neg_sum = - delta1 + delta2; // RelativeDelta::with_years(5).and_months(39).build()
+assert_eq!(delta1 + delta2, RelativeDelta::with_years(-3).and_months(45).build());
+assert_eq!(delta1 - delta2, RelativeDelta::with_years(-5).and_months(-39).build());
+assert_eq!(-delta1 + delta2, RelativeDelta::with_years(5).and_months(39).build());
 ```
 
 Multiplication with a float:
 
 ```rust
+use relativedelta::RelativeDelta;
+
 let delta = RelativeDelta::with_years(4).and_months(6).build();
-let half = delta * 0.5; // RelativeDelta::with_years(2).and_months(3).build()
+assert_eq!(delta * 0.5, RelativeDelta::with_years(2).and_months(3).build());
 ```
 
 #### Modifying an Existing RelativeDelta
@@ -234,8 +239,11 @@ let half = delta * 0.5; // RelativeDelta::with_years(2).and_months(3).build()
 Use the `.builder()` method to create a Builder from an existing RelativeDelta:
 
 ```rust
+use relativedelta::RelativeDelta;
+
 let original = RelativeDelta::with_years(1).build();
-let modified = original.builder().and_months(6).and_days( - 5).build();
+let modified = original.builder().and_months(6).and_days(-5).build();
+assert_eq!(modified, RelativeDelta::with_years(1).and_months(6).and_days(-5).build());
 ```
 
 #### Using RelativeDelta with Datetime Libraries
@@ -243,56 +251,72 @@ let modified = original.builder().and_months(6).and_days( - 5).build();
 With the chrono crate (requires the **chrono** feature):
 
 ```rust
-use chrono;
-// Get the last day of the current month
-let last_day_of_month = chrono::Utc::now() + RelativeDelta::with_day(1)
-.and_months(1)
-.and_days( - 1)
-.build();
+use chrono::{TimeZone, Utc};
+use relativedelta::{RelativeDelta, Weekday};
 
-// Get the first Monday after one year from a specific date
-let first_monday_after_one_year = chrono::Utc::now() + RelativeDelta::with_years(1)
-.and_weekday(Some((Weekday::Mon, 1)))
-.build();
+let now = Utc.with_ymd_and_hms(2024, 2, 10, 9, 30, 0).unwrap();
+
+// Last day of the current month
+let last_day_of_month = now + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+assert_eq!(last_day_of_month, Utc.with_ymd_and_hms(2024, 2, 29, 9, 30, 0).unwrap());
+
+// First Monday on or after the same date next year
+let first_monday = now
+    + RelativeDelta::with_years(1)
+        .and_weekday(Some((Weekday::Mon, 1)))
+        .build();
+assert_eq!(first_monday, Utc.with_ymd_and_hms(2025, 2, 10, 9, 30, 0).unwrap());
 ```
 
 With the time crate (requires the **time** feature):
 
 ```rust
-use time;
+use relativedelta::RelativeDelta;
+use time::{Date, Month, PrimitiveDateTime, Time};
 
-// Add 1 year, 3 months, and 15 days to a date
+let at_half_past_nine = |year, month, day| {
+    PrimitiveDateTime::new(
+        Date::from_calendar_date(year, month, day).unwrap(),
+        Time::from_hms(9, 30, 0).unwrap(),
+    )
+};
+let now = at_half_past_nine(2024, Month::February, 10);
+
+// Add 1 year, 3 months and 15 days
 let delta = RelativeDelta::with_years(1).and_months(3).and_days(15).build();
-let result = time::UtcDateTime::now() + delta;
+assert_eq!(now + delta, at_half_past_nine(2025, Month::May, 25));
 
-// Get the last day of a month
-let last_day = time::UtcDateTime::now() + RelativeDelta::with_day(1)
-.and_months(1)
-.and_days( - 1)
-.build();
+// Last day of the month
+let last_day = now + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+assert_eq!(last_day, at_half_past_nine(2024, Month::February, 29));
 ```
 
 With the jiff crate (requires the **jiff** feature):
 
 ```rust
 use jiff::civil::date;
+use relativedelta::RelativeDelta;
 
-// Get the last day of a month
-let last_day = date(2024, 2, 10) + RelativeDelta::with_day(1)
-.and_months(1)
-.and_days(-1)
-.build();
+// Last day of the month
+let last_day = date(2024, 2, 10) + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
 assert_eq!(last_day, date(2024, 2, 29));
 ```
 
 #### Working with Weekdays
 
-Get the 3rd Tuesday of next month:
+The 3rd Tuesday of next month:
 
 ```rust
+use chrono::NaiveDate;
+use relativedelta::{RelativeDelta, Weekday};
+
 let third_tuesday_next_month = RelativeDelta::with_months(1)
-.and_weekday(Some((Weekday::Tue, 3)))
-.build();
+    .and_day(Some(1))
+    .and_weekday(Some((Weekday::Tue, 3)))
+    .build();
+
+let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+assert_eq!(today + third_tuesday_next_month, NaiveDate::from_ymd_opt(2024, 4, 16).unwrap());
 ```
 
 For more examples, see the [cookbook](docs/cookbook.md).
