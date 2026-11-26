@@ -1,6 +1,7 @@
 # RelativeDelta Cookbook
 
-Practical recipes for common date/time scenarios using RelativeDelta.
+Practical recipes for common date/time scenarios using RelativeDelta. The recipes use chrono and
+fixed dates so every result can be checked; they work the same with the time and jiff backends.
 
 ## Table of Contents
 
@@ -9,6 +10,7 @@ Practical recipes for common date/time scenarios using RelativeDelta.
 - [Scheduling & Deadlines](#scheduling--deadlines)
 - [Calendar Operations](#calendar-operations)
 - [Time-based Calculations](#time-based-calculations)
+- [Tips & Best Practices](#tips--best-practices)
 
 ---
 
@@ -19,43 +21,42 @@ Practical recipes for common date/time scenarios using RelativeDelta.
 Calculate when an employee's next salary review is due (typically 1 month, 3 months, or 1 year after hire).
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let hire_date = Utc::now();
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let hire_date = ymd(2024, 1, 31);
 
-// 1-month review
+// 1-month review; February has no 31st, so the day is clamped
 let one_month_review = hire_date + RelativeDelta::with_months(1).build();
+assert_eq!(one_month_review, ymd(2024, 2, 29));
 
 // 3-month probation end
 let probation_end = hire_date + RelativeDelta::with_months(3).build();
+assert_eq!(probation_end, ymd(2024, 4, 30));
 
 // Annual review
 let annual_review = hire_date + RelativeDelta::with_years(1).build();
+assert_eq!(annual_review, ymd(2025, 1, 31));
 ```
 
-### Last Workday of Month (for Payroll)
+### Last Day of Month (for Payroll)
 
-Get the last day of the month for monthly payroll processing (typically not a weekend in real systems, but this gets the calendar day).
+Get the last calendar day of a month for monthly payroll processing: set the day to the 1st, move
+forward a month, then go back a day.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let today = Utc::now();
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let today = ymd(2024, 3, 20);
 
-// Get last day of current month
-let last_day_this_month = today
-    + RelativeDelta::with_day(1)
-        .and_months(1)
-        .and_days(-1)
-        .build();
+let last_day_this_month = today + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+assert_eq!(last_day_this_month, ymd(2024, 3, 31));
 
-// Get last day of next month
-let last_day_next_month = today + RelativeDelta::with_months(2)
-    .and_day(1)
-    .and_days(-1)
-    .build();
+let last_day_next_month = today + RelativeDelta::with_day(1).and_months(2).and_days(-1).build();
+assert_eq!(last_day_next_month, ymd(2024, 4, 30));
 ```
 
 ### Vacation Days Expiry
@@ -63,14 +64,19 @@ let last_day_next_month = today + RelativeDelta::with_months(2)
 Track when accrued vacation days expire (typically 1 year from accrual date).
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let accrual_date = Utc::now();
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let accrual_date = ymd(2024, 3, 20);
 let expiry_date = accrual_date + RelativeDelta::with_years(1).build();
+assert_eq!(expiry_date, ymd(2025, 3, 20));
 
-// Alert if within 30 days of expiry
-let soon_expiring = today >= (expiry_date + RelativeDelta::with_days(-30).build());
+// Alert within 30 days of expiry
+let alert_from = expiry_date - RelativeDelta::with_days(30).build();
+assert_eq!(alert_from, ymd(2025, 2, 18));
+let today = ymd(2025, 3, 1);
+assert!(today >= alert_from);
 ```
 
 ---
@@ -79,49 +85,43 @@ let soon_expiring = today >= (expiry_date + RelativeDelta::with_days(-30).build(
 
 ### Monthly Recurring Charge (Fixed Day of Month)
 
-Charge a customer on the same day each month, handling month-boundary issues (e.g., Jan 31 → Feb 28).
+Charge a customer on the same day each month.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let today = Utc::now();
-let charge_day = 15; // Always on the 15th
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let today = ymd(2024, 3, 20);
+let charge_day = 15;
 
-// Next charge date (same day next month)
-let next_charge = today + RelativeDelta::with_months(1).and_day(Some(charge_day)).build();
-
-// Schedule multiple charges
-let charge_1 = today + RelativeDelta::with_months(1).and_day(Some(charge_day)).build();
-let charge_2 = today + RelativeDelta::with_months(2).and_day(Some(charge_day)).build();
-let charge_3 = today + RelativeDelta::with_months(3).and_day(Some(charge_day)).build();
+let charges: Vec<_> = (1..=3)
+    .map(|month| today + RelativeDelta::with_months(month).and_day(Some(charge_day)).build())
+    .collect();
+assert_eq!(charges, [ymd(2024, 4, 15), ymd(2024, 5, 15), ymd(2024, 6, 15)]);
 ```
 
-### Quarterly Financial Reporting
+The day is clamped to the length of the month, so a charge on the 31st falls on the 30th in April
+and on the 28th or 29th in February.
 
-Calculate dates for quarterly reports (Q1, Q2, Q3, Q4).
+### Quarter Boundaries
+
+Determine the quarter a date falls in and get its first and last day.
 
 ```rust
+use chrono::{Datelike, NaiveDate};
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let today = Utc::now();
+fn quarter_bounds(date: NaiveDate) -> (NaiveDate, NaiveDate) {
+    let first_month = u8::try_from((date.month0() / 3) * 3 + 1).unwrap();
+    let start = date + RelativeDelta::with_month(first_month).and_day(Some(1)).build();
+    let end = start + RelativeDelta::with_months(3).and_days(-1).build();
+    (start, end)
+}
 
-// Q1 ends: Mar 31
-let q1_end = today
-    .with_month(3).unwrap()
-    .with_day(31).unwrap()
-    .with_hour(0).unwrap()
-    .with_minute(0).unwrap()
-    .with_second(0).unwrap()
-    .with_nanosecond(0).unwrap();
-
-// Or using RelativeDelta to ensure we get the right quarter-end:
-let next_quarter = today + RelativeDelta::with_months(3).build();
-let quarter_end = next_quarter
-    + RelativeDelta::with_month(Some((next_quarter.month() / 3) * 3 + 3))
-        .and_day(Some(31))
-        .build();
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+assert_eq!(quarter_bounds(ymd(2024, 3, 20)), (ymd(2024, 1, 1), ymd(2024, 3, 31)));
+assert_eq!(quarter_bounds(ymd(2024, 8, 7)), (ymd(2024, 7, 1), ymd(2024, 9, 30)));
 ```
 
 ### Loan/Mortgage Payment Schedule
@@ -129,19 +129,18 @@ let quarter_end = next_quarter
 Generate payment dates with fixed intervals.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let loan_start = Utc::now();
-let payment_day = 1; // Always on the 1st
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let loan_start = ymd(2024, 3, 20);
 
-// Generate 12 monthly payment dates
-let mut payment_dates = Vec::new();
-for month in 1..=12 {
-    let payment = loan_start
-        + RelativeDelta::with_months(month).and_day(Some(payment_day)).build();
-    payment_dates.push(payment);
-}
+// 12 monthly payments, always on the 1st
+let payment_dates: Vec<_> = (1..=12)
+    .map(|month| loan_start + RelativeDelta::with_months(month).and_day(Some(1)).build())
+    .collect();
+assert_eq!(payment_dates.first(), Some(&ymd(2024, 4, 1)));
+assert_eq!(payment_dates.last(), Some(&ymd(2025, 3, 1)));
 ```
 
 ### Contract Renewal Date
@@ -149,13 +148,12 @@ for month in 1..=12 {
 Calculate when a contract renews (often 1 or 3 years from signature).
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let contract_date = Utc::now();
-let renewal_term_years = 3;
-
-let renewal_date = contract_date + RelativeDelta::with_years(renewal_term_years).build();
+let contract_date = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+let renewal_date = contract_date + RelativeDelta::with_years(3).build();
+assert_eq!(renewal_date, NaiveDate::from_ymd_opt(2027, 3, 20).unwrap());
 ```
 
 ---
@@ -164,92 +162,65 @@ let renewal_date = contract_date + RelativeDelta::with_years(renewal_term_years)
 
 ### Find Nth Weekday of Month
 
-Find the 2nd Tuesday, 3rd Friday, etc. (common for recurring meetings).
+Find the 2nd Tuesday, 3rd Friday, etc. (common for recurring meetings). Set the day to the 1st,
+then ask for the nth weekday: the date itself counts as the first occurrence if it falls on that
+weekday, as in dateutil.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::{RelativeDelta, Weekday};
-use chrono::Utc;
 
-let today = Utc::now();
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let today = ymd(2024, 3, 20);
 
 // Next month's 2nd Tuesday
 let second_tuesday_next_month = today
     + RelativeDelta::with_months(1)
+        .and_day(Some(1))
         .and_weekday(Some((Weekday::Tue, 2)))
         .build();
+assert_eq!(second_tuesday_next_month, ymd(2024, 4, 9));
 
-// Current month's 3rd Friday
+// This month's 3rd Friday
 let third_friday_this_month = today
-    + RelativeDelta::with_weekday(Some((Weekday::Fri, 3)))
+    + RelativeDelta::with_day(1)
+        .and_weekday(Some((Weekday::Fri, 3)))
         .build();
+assert_eq!(third_friday_this_month, ymd(2024, 3, 15));
 
-// Last working day (Friday) of month - find 4th or 5th Friday
-// Note: This is approximate; check actual day to confirm
+// This month's last Friday: go to the last day of the month, then search backwards
 let last_friday = today
     + RelativeDelta::with_day(1)
         .and_months(1)
-        .and_weekday(Some((Weekday::Fri, -1)))  // -1 for last occurrence
-        .build();
-```
-
-### Deadline: End of Month
-
-Get the last day of the current or next month for submission deadlines.
-
-```rust
-use relativedelta::RelativeDelta;
-use chrono::Utc;
-
-let today = Utc::now();
-
-// Deadline: last day of this month
-let end_of_month = today
-    + RelativeDelta::with_day(1)
-        .and_months(1)
         .and_days(-1)
+        .and_weekday(Some((Weekday::Fri, -1)))
         .build();
-
-// Deadline: last day of next month
-let end_of_next_month = today
-    + RelativeDelta::with_day(1)
-        .and_months(2)
-        .and_days(-1)
-        .build();
+assert_eq!(last_friday, ymd(2024, 3, 29));
 ```
 
 ### Recurring Meeting Schedule
 
-Schedule a recurring meeting every 2 weeks.
+Schedule a meeting every 2 weeks on Wednesday, starting from the first Wednesday on or after a date.
 
 ```rust
-use relativedelta::RelativeDelta;
-use chrono::Utc;
+use chrono::NaiveDate;
+use relativedelta::{RelativeDelta, Weekday};
 
-let start_date = Utc::now();
-let meeting_day_of_week = chrono::Weekday::Wed;
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let start_date = ymd(2024, 3, 18); // a Monday
 
-// Next 5 occurrences (every 2 weeks on Wednesday)
-let mut meetings = Vec::new();
-for occurrence in 0..5 {
-    let weeks = occurrence * 2;
-    let meeting = start_date
-        + RelativeDelta::with_weeks(weeks as i32)
-            .and_weekday(Some((
-                // Convert chrono Weekday to relativedelta Weekday
-                match meeting_day_of_week {
-                    chrono::Weekday::Mon => relativedelta::Weekday::Mon,
-                    chrono::Weekday::Tue => relativedelta::Weekday::Tue,
-                    chrono::Weekday::Wed => relativedelta::Weekday::Wed,
-                    chrono::Weekday::Thu => relativedelta::Weekday::Thu,
-                    chrono::Weekday::Fri => relativedelta::Weekday::Fri,
-                    chrono::Weekday::Sat => relativedelta::Weekday::Sat,
-                    chrono::Weekday::Sun => relativedelta::Weekday::Sun,
-                },
-                1,
-            )))
-            .build();
-    meetings.push(meeting);
-}
+let meetings: Vec<_> = (0..5)
+    .map(|occurrence| {
+        start_date
+            + RelativeDelta::with_days(14 * occurrence)
+                .and_weekday(Some((Weekday::Wed, 1)))
+                .build()
+    })
+    .collect();
+assert_eq!(
+    meetings,
+    [ymd(2024, 3, 20), ymd(2024, 4, 3), ymd(2024, 4, 17), ymd(2024, 5, 1), ymd(2024, 5, 15)]
+);
 ```
 
 ---
@@ -261,32 +232,25 @@ for occurrence in 0..5 {
 Calculate fiscal year boundaries (e.g., July 1 - June 30).
 
 ```rust
+use chrono::{Datelike, NaiveDate};
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let today = Utc::now();
-let fiscal_start_month = 7;  // July
-let fiscal_start_day = 1;
+fn fiscal_year_start(date: NaiveDate) -> NaiveDate {
+    let years_back = if date.month() >= 7 { 0 } else { -1 };
+    date + RelativeDelta::with_years(years_back).and_month(Some(7)).and_day(Some(1)).build()
+}
 
-// Current fiscal year start
-let current_fy_start = today
-    + RelativeDelta::with_month(Some(fiscal_start_month))
-        .and_day(Some(fiscal_start_day))
-        .build();
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let today = ymd(2024, 3, 20);
 
-// Current fiscal year end
-let current_fy_end = today
-    + RelativeDelta::with_months(12)
-        .and_month(Some(fiscal_start_month))
-        .and_day(Some(fiscal_start_day - 1))
-        .build();
+let current_fy_start = fiscal_year_start(today);
+assert_eq!(current_fy_start, ymd(2023, 7, 1));
 
-// Next fiscal year start
-let next_fy_start = today
-    + RelativeDelta::with_years(1)
-        .and_month(Some(fiscal_start_month))
-        .and_day(Some(fiscal_start_day))
-        .build();
+let current_fy_end = current_fy_start + RelativeDelta::with_years(1).and_days(-1).build();
+assert_eq!(current_fy_end, ymd(2024, 6, 30));
+
+let next_fy_start = current_fy_start + RelativeDelta::with_years(1).build();
+assert_eq!(next_fy_start, ymd(2024, 7, 1));
 ```
 
 ### Age Calculation with Anniversary
@@ -294,47 +258,17 @@ let next_fy_start = today
 Calculate when someone will turn a specific age.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let birth_date = Utc::now() - chrono::Duration::days(365 * 30);  // ~30 years ago
-let target_age = 35;
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
 
-let next_birthday_at_target_age = birth_date
-    + RelativeDelta::with_years(target_age).build();
-```
+let birth_date = ymd(1990, 8, 15);
+assert_eq!(birth_date + RelativeDelta::with_years(35).build(), ymd(2025, 8, 15));
 
-### Business Quarter by Date
-
-Determine which quarter a date falls in and get quarter boundaries.
-
-```rust
-use relativedelta::RelativeDelta;
-use chrono::Utc;
-
-fn get_quarter_bounds(date: chrono::DateTime<Utc>) -> (chrono::DateTime<Utc>, chrono::DateTime<Utc>) {
-    let month = date.month();
-    let quarter = (month - 1) / 3 + 1;  // 1-4
-    
-    // Quarter start month
-    let start_month = (quarter - 1) * 3 + 1;
-    let end_month = quarter * 3;
-    
-    let q_start = date
-        + RelativeDelta::with_month(Some(start_month))
-            .and_day(Some(1))
-            .build();
-    
-    let q_end = date
-        + RelativeDelta::with_month(Some(end_month))
-            .and_day(Some(31))
-            .build();
-    
-    (q_start, q_end)
-}
-
-let today = Utc::now();
-let (q_start, q_end) = get_quarter_bounds(today);
+// Someone born on a leap day turns 25 on the last day of February
+let leap_day_birth = ymd(2000, 2, 29);
+assert_eq!(leap_day_birth + RelativeDelta::with_years(25).build(), ymd(2025, 2, 28));
 ```
 
 ---
@@ -346,57 +280,57 @@ let (q_start, q_end) = get_quarter_bounds(today);
 Schedule a meeting and calculate end time.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let meeting_start = Utc::now();
-let duration_hours = 2;
+let at = |h, m| NaiveDate::from_ymd_opt(2024, 3, 20).unwrap().and_hms_opt(h, m, 0).unwrap();
+let meeting_start = at(9, 0);
 
-// End time (2 hours later)
-let meeting_end = meeting_start
-    + RelativeDelta::with_hours(duration_hours).build();
+let meeting_end = meeting_start + RelativeDelta::with_hours(2).build();
+assert_eq!(meeting_end, at(11, 0));
 
-// Lunch break (1 hour after meeting starts)
-let lunch_break = meeting_start
-    + RelativeDelta::with_hours(1).build();
+let lunch_break = meeting_start + RelativeDelta::with_hours(1).and_minutes(30).build();
+assert_eq!(lunch_break, at(10, 30));
 ```
 
 ### Shift Scheduling
 
-Calculate shift times (e.g., 9 AM - 5 PM with breaks).
+Calculate shift times (e.g., 9 AM - 5 PM with breaks). Absolute time fields set the shift start
+regardless of the current time.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let shift_start = Utc::now().with_hour(9).unwrap();
+let at = |h, m| NaiveDate::from_ymd_opt(2024, 3, 20).unwrap().and_hms_opt(h, m, 0).unwrap();
+let now = at(7, 42);
 
-// Lunch at 12 PM (3 hours in)
+let shift_start = now + RelativeDelta::with_hour(9).and_minute(Some(0)).build();
+assert_eq!(shift_start, at(9, 0));
+
 let lunch = shift_start + RelativeDelta::with_hours(3).build();
-
-// Lunch duration 1 hour
 let back_from_lunch = lunch + RelativeDelta::with_hours(1).build();
-
-// Shift end 5 PM
 let shift_end = shift_start + RelativeDelta::with_hours(8).build();
+assert_eq!((lunch, back_from_lunch, shift_end), (at(12, 0), at(13, 0), at(17, 0)));
 ```
 
-### Expiry windows
+### Expiry Windows
 
 Check if something expires within a time window.
 
 ```rust
+use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let expiry_date = Utc::now() + chrono::Duration::days(30);
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let today = ymd(2024, 3, 20);
+let expiry_date = ymd(2024, 4, 19);
 
-// Check if expires within 7 days
-let alert_date = expiry_date + RelativeDelta::with_days(-7).build();
-let should_alert = Utc::now() >= alert_date;
-
-// Check if already expired
-let is_expired = Utc::now() > expiry_date;
+// Alert from 7 days before expiry
+let alert_date = expiry_date - RelativeDelta::with_days(7).build();
+assert_eq!(alert_date, ymd(2024, 4, 12));
+assert!(today < alert_date);
+assert!(today <= expiry_date);
 ```
 
 ---
@@ -405,50 +339,67 @@ let is_expired = Utc::now() > expiry_date;
 
 ### 1. Always Build
 
-Don't forget `.build()` at the end of the builder chain:
+Finish the builder chain with `.build()`; a `Builder` can't be added to a date:
 
 ```rust
-// ✅ Correct
-let date = today + RelativeDelta::with_months(1).build();
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
 
-// ❌ Wrong - doesn't compile
-let date = today + RelativeDelta::with_months(1);
+let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+let next_month = today + RelativeDelta::with_months(1).build();
+// `today + RelativeDelta::with_months(1)` doesn't compile
+assert_eq!(next_month, NaiveDate::from_ymd_opt(2024, 4, 20).unwrap());
 ```
 
 ### 2. Handle Month Boundaries
 
-RelativeDelta automatically handles them, but be aware:
+RelativeDelta clamps the day to the length of the target month:
 
 ```rust
-let jan_31 = Utc::now().with_month(1).unwrap().with_day(31).unwrap();
-let feb_28 = jan_31 + RelativeDelta::with_months(1).build();
-// feb_28 is Feb 28 (or 29 in leap years), NOT Mar 1
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let jan_31 = NaiveDate::from_ymd_opt(2023, 1, 31).unwrap();
+let end_of_feb = jan_31 + RelativeDelta::with_months(1).build();
+// Feb 28 (or 29 in leap years), NOT Mar 3
+assert_eq!(end_of_feb, NaiveDate::from_ymd_opt(2023, 2, 28).unwrap());
 ```
 
 ### 3. Combine Multiple Offsets
 
-You can chain multiple operations easily:
+You can chain multiple offsets in one delta:
 
 ```rust
-let date = today
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let start = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap().and_hms_opt(9, 0, 0).unwrap();
+let later = start
     + RelativeDelta::with_years(1)
         .and_months(2)
         .and_days(3)
         .and_hours(4)
         .and_minutes(30)
         .build();
+assert_eq!(later, NaiveDate::from_ymd_opt(2025, 5, 23).unwrap().and_hms_opt(13, 30, 0).unwrap());
 ```
 
 ### 4. Use Absolute Values for Lock Points
 
-Set specific values, not offsets:
+Fields without an "s" set a value; fields with an "s" add an offset:
 
 ```rust
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+let today = ymd(2024, 3, 20);
+
 // Lock to day 15 of the month (absolute)
-let date = today + RelativeDelta::with_day(Some(15)).build();
+assert_eq!(today + RelativeDelta::with_day(15).build(), ymd(2024, 3, 15));
 
 // Add 15 days (relative)
-let date = today + RelativeDelta::with_days(15).build();
+assert_eq!(today + RelativeDelta::with_days(15).build(), ymd(2024, 4, 4));
 ```
 
 ### 5. Feature Flags
@@ -459,8 +410,8 @@ Enable only what you need:
 # For chrono support only
 relativedelta = { version = "0.3", features = ["chrono"] }
 
-# For both chrono and serde
-relativedelta = { version = "0.3", features = ["chrono", "serde"] }
+# For jiff and serde
+relativedelta = { version = "0.3", features = ["jiff", "serde"] }
 
 # For JSON schema generation
 relativedelta = { version = "0.3", features = ["schemars"] }

@@ -1,18 +1,19 @@
 # RelativeDelta vs Duration: When to Use Each
 
-This guide compares Rust's standard `Duration` type with `RelativeDelta` to help you choose the right tool for your date/time needs.
+This guide compares fixed-length durations (`std::time::Duration`, `chrono::TimeDelta`,
+`time::Duration`, `jiff::SignedDuration`) with `RelativeDelta` to help you choose the right tool for
+your date/time needs. The examples use chrono and fixed dates so every result can be checked.
 
 ## Quick Comparison
 
 | Feature | Duration | RelativeDelta |
 |---------|----------|---------------|
-| **Fixed time intervals** | ✅ Excellent | ✅ Works (converts to fixed) |
-| **Day multiplication** | ✅ Perfect | ✅ Supported |
+| **Fixed time intervals** | ✅ Excellent | ✅ Days, hours, minutes, seconds and nanoseconds |
 | **Adding months/years** | ❌ Not possible | ✅ Core strength |
 | **Month boundaries** | ❌ Breaks | ✅ Handles automatically |
 | **Lock to specific day** | ❌ Not available | ✅ `.and_day(Some(15))` |
-| **Target weekdays** | ❌ Not available | ✅ `.and_weekday(Some(Weekday::Tue, 2))` |
-| **Serialization** | ✅ Built-in | ✅ Via serde feature |
+| **Target weekdays** | ❌ Not available | ✅ `.and_weekday(Some((Weekday::Tue, 2)))` |
+| **Serialization** | ✅ Via serde | ✅ Via the serde feature |
 | **No-std support** | ✅ Yes | ✅ Yes |
 
 ## Detailed Comparisons
@@ -21,25 +22,26 @@ This guide compares Rust's standard `Duration` type with `RelativeDelta` to help
 
 **The Issue**: What should "add 1 month to January 31st" return?
 
-**Duration approach (doesn't work)**:
-```rust
-use std::time::Duration;
-use chrono::Utc;
+**Duration approach (approximate)**: a duration can't represent "1 month", only a fixed number of
+days, so the result depends on the month you start in:
 
-let jan_31 = Utc::now(); // Jan 31, 2024
-// Duration cannot represent "1 month" - only fixed 24-hour periods!
-// This doesn't exist: let result = jan_31 + Duration::from_secs(30 * 24 * 3600);
-// Above would be approximately 30 days, giving us Feb 29 (or 30), not March 31
+```rust
+use chrono::{NaiveDate, TimeDelta};
+
+let jan_31 = NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
+let roughly_a_month_later = jan_31 + TimeDelta::days(30);
+assert_eq!(roughly_a_month_later, NaiveDate::from_ymd_opt(2024, 3, 1).unwrap()); // not February
 ```
 
 **RelativeDelta approach**:
-```rust
-use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let jan_31 = Utc::now(); // Jan 31, 2024
-let feb_29_2024 = jan_31 + RelativeDelta::with_months(1).build();
-// Returns Feb 29 (2024 is leap year, automatic boundary handling)
+```rust
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let jan_31 = NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
+let one_month_later = jan_31 + RelativeDelta::with_months(1).build();
+assert_eq!(one_month_later, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap()); // leap year, clamped
 ```
 
 **Why this matters**: Month length varies (28-31 days). RelativeDelta handles boundary logic automatically.
@@ -47,58 +49,62 @@ let feb_29_2024 = jan_31 + RelativeDelta::with_months(1).build();
 ### Problem 2: Get Last Day of Month
 
 **Duration approach (tedious)**:
-```rust
-use chrono::{Utc, Datelike};
 
-let today = Utc::now();
-// Calculate "tomorrow + 1 month, minus 1 day"
-let next_month = today + chrono::Duration::days(31); // rough estimate
-let first_of_next = next_month.with_day(1).unwrap();
-let last_day = first_of_next - chrono::Duration::days(1);
+```rust
+use chrono::{Datelike, NaiveDate, TimeDelta};
+
+let today = NaiveDate::from_ymd_opt(2024, 2, 10).unwrap();
+// Jump far enough into next month, go to its 1st, then back a day
+let next_month = today.with_day(1).unwrap() + TimeDelta::days(31);
+let last_day = next_month.with_day(1).unwrap() - TimeDelta::days(1);
+assert_eq!(last_day, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap());
 ```
 
 **RelativeDelta approach (clear intent)**:
-```rust
-use relativedelta::RelativeDelta;
-use chrono::Utc;
 
-let today = Utc::now();
-let last_day = today + RelativeDelta::with_day(1)
-    .and_months(1)
-    .and_days(-1)
-    .build();
-// Clear: set day=1, add 1 month, subtract 1 day = last day of month
+```rust
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let today = NaiveDate::from_ymd_opt(2024, 2, 10).unwrap();
+// Set day=1, add 1 month, subtract 1 day = last day of month
+let last_day = today + RelativeDelta::with_day(1).and_months(1).and_days(-1).build();
+assert_eq!(last_day, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap());
 ```
 
 **Why this matters**: Semantic clarity. The code reads like the business logic.
 
 ### Problem 3: Find Nth Weekday of Month
 
-**Duration approach (not available)**:
-```rust
-use chrono::{Utc, Weekday, Datelike};
+**Duration approach (manual loop)**:
 
-let today = Utc::now();
-// No built-in way to say "find 2nd Tuesday next month"
-// Manual approach:
-let mut date = today + chrono::Duration::days(30); // rough
+```rust
+use chrono::{Datelike, Months, NaiveDate, TimeDelta, Weekday};
+
+let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+// 2nd Tuesday of next month: find the first Tuesday, then add a week
+let mut date = today.with_day(1).unwrap() + Months::new(1);
 while date.weekday() != Weekday::Tue {
-    date = date + chrono::Duration::days(1);
+    date += TimeDelta::days(1);
 }
-let count = (date.day() - 1) / 7 + 1;
-if count != 2 { /* ... more logic ... */ }
+let second_tuesday = date + TimeDelta::days(7);
+assert_eq!(second_tuesday, NaiveDate::from_ymd_opt(2024, 4, 9).unwrap());
 ```
 
 **RelativeDelta approach (direct)**:
-```rust
-use relativedelta::{RelativeDelta, Weekday};
-use chrono::Utc;
 
-let today = Utc::now();
-let second_tuesday = today + RelativeDelta::with_months(1)
-    .and_weekday(Some((Weekday::Tue, 2)))
-    .build();
-// Direct: 1 month forward, at 2nd Tuesday
+```rust
+use chrono::NaiveDate;
+use relativedelta::{RelativeDelta, Weekday};
+
+let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+// Next month, from its 1st, at the 2nd Tuesday
+let second_tuesday = today
+    + RelativeDelta::with_months(1)
+        .and_day(Some(1))
+        .and_weekday(Some((Weekday::Tue, 2)))
+        .build();
+assert_eq!(second_tuesday, NaiveDate::from_ymd_opt(2024, 4, 9).unwrap());
 ```
 
 **Why this matters**: Intent is immediately clear. No loops or off-by-one risk.
@@ -108,8 +114,7 @@ let second_tuesday = today + RelativeDelta::with_months(1)
 ### Use Duration when:
 
 - ✅ You need **fixed time intervals** (seconds, hours, fixed days)
-- ✅ You're measuring **elapsed time** between two dates
-- ✅ You need **millisecond precision**
+- ✅ You're measuring **elapsed time** between two instants
 - ✅ You're working with **timers** or **timeouts**
 - Examples: "wait 500ms", "session expires in 30 seconds", "elapsed time since start"
 
@@ -126,87 +131,81 @@ let second_tuesday = today + RelativeDelta::with_months(1)
 
 ### Case 1: Monthly Subscription Billing
 
-**Wrong choice (Duration)**:
+A 30-day assumption drifts across month boundaries; a calendar month keeps the billing day:
+
 ```rust
-// PROBLEM: 30-day assumption breaks on month boundaries
-let billing_date = today + Duration::days(30);
-// Jan -> Feb often wrong; Feb -> Mar wrong in leap years
+use chrono::{NaiveDate, TimeDelta};
+use relativedelta::RelativeDelta;
+
+let signup = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+
+// Wrong: lands on Feb 14
+assert_eq!(signup + TimeDelta::days(30), NaiveDate::from_ymd_opt(2024, 2, 14).unwrap());
+
+// Right: always the 15th
+assert_eq!(
+    signup + RelativeDelta::with_months(1).build(),
+    NaiveDate::from_ymd_opt(2024, 2, 15).unwrap()
+);
 ```
 
-**Right choice (RelativeDelta)**:
-```rust
-// Always same day of month, handles boundaries
-let billing_date = today + RelativeDelta::with_months(1).build();
-```
+### Case 2: Weekly Schedules
 
-### Case 2: Shift Work Scheduling
+For a week, both give the same date: RelativeDelta adds days as exact 24-hour periods, just like a
+duration. On a time-zone-aware date-time, a week across a DST change therefore lands an hour off
+on the wall clock with either approach. Prefer whichever reads better next to the rest of your
+code.
 
-**Wrong choice (Duration)**:
-```rust
-// PROBLEM: "next week" isn't exactly 7 * 24 hours
-let next_week_estimate = today + Duration::days(7);
-```
-
-**Right choice (RelativeDelta)**:
-```rust
-// Respects calendar week (handles DST, calendar boundaries)
-let next_week = today + RelativeDelta::with_weeks(1).build();
-```
-
-### Case 3: Fiscal Year End
+### Case 3: Calendar Year End
 
 **Duration**: Not applicable (calendar concept).
 
 **RelativeDelta**:
+
 ```rust
-// Get fiscal year-end date (Dec 31)
-let fiscal_year_end = today 
-    + RelativeDelta::with_year(today.year() + 1)
-        .and_month(Some(12))
-        .and_day(Some(31))
-        .build();
+use chrono::NaiveDate;
+use relativedelta::RelativeDelta;
+
+let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+let year_end = today + RelativeDelta::with_month(12).and_day(Some(31)).build();
+assert_eq!(year_end, NaiveDate::from_ymd_opt(2024, 12, 31).unwrap());
 ```
 
 ### Case 4: API Response Timeout
 
-**Duration**: Right tool.
-
-**RelativeDelta**: Wrong tool (use Duration).
+**Duration**: Right tool. A timeout is a fixed span of elapsed time, not a calendar position:
 
 ```rust
-// CORRECT: Use Duration for fixed time measurements
-timeout(Duration::from_secs(30), make_request()).await
+use std::time::Duration;
+
+let request_timeout = Duration::from_secs(30);
+assert_eq!(request_timeout.as_millis(), 30_000);
 ```
 
-## Performance Notes
-
-- **Duration**: Zero-cost abstraction. Simple arithmetic.
-- **RelativeDelta**: Minimal overhead. Building involves integer comparisons for boundary logic. Negligible in most applications.
-
-Typical comparison:
-- Duration: <50ns for arithmetic
-- RelativeDelta: <200ns for arithmetic + boundary logic
-
-For business applications, this difference is irrelevant. Clarity wins.
+**RelativeDelta**: Wrong tool.
 
 ## Migration Example
 
-Suppose you have buggy code using Duration:
+Suppose you have buggy code that assumes 30 days per month:
 
 ```rust
-// BUGGY: Assumes 30 days per month
-let next_billing = today + Duration::days(30);
-```
+use chrono::{NaiveDate, TimeDelta};
+use relativedelta::RelativeDelta;
 
-Convert to RelativeDelta:
+let today = NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
 
-```rust
-// FIXED: Respects calendar
+// Buggy: skips February entirely
+let next_billing = today + TimeDelta::days(30);
+assert_eq!(next_billing, NaiveDate::from_ymd_opt(2024, 3, 1).unwrap());
+
+// Fixed: respects the calendar
 let next_billing = today + RelativeDelta::with_months(1).build();
+assert_eq!(next_billing, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap());
 ```
 
 ## See Also
 
 - [RelativeDelta API Docs](https://docs.rs/relativedelta/)
-- [Chrono Duration Docs](https://docs.rs/chrono/latest/chrono/struct.Duration.html)
+- [Chrono TimeDelta Docs](https://docs.rs/chrono/latest/chrono/struct.TimeDelta.html)
 - [Time Duration Docs](https://docs.rs/time/latest/time/struct.Duration.html)
+- [Jiff SignedDuration Docs](https://docs.rs/jiff/latest/jiff/struct.SignedDuration.html)
