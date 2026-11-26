@@ -5,7 +5,6 @@
 use core::ops;
 
 use num_integer::Integer;
-#[cfg(all(not(test), not(feature = "std")))]
 use num_traits::float::FloatCore;
 use num_traits::{ToPrimitive, Zero};
 use paste::paste;
@@ -348,30 +347,31 @@ impl Builder {
 		nanoseconds: i64,
 	) -> Self {
 		let years_total = years;
-		let years = years.trunc();
+		let years = FloatCore::trunc(years);
 
 		let months_f = (years_total - years) * MAX_MONTHS as f64;
 		let months_total = months_f + months;
-		let months = months_total.trunc();
+		let months = FloatCore::trunc(months_total);
 		let months_remainder = months_total - months;
 		// Unfortunately we might loose some days here, as we do not know the number of days in a relative month
 
 		let days_total = days;
-		let days = days_total.trunc();
+		let days = FloatCore::trunc(days_total);
 
 		let hours_f = (days_total - days) * MAX_HOURS as f64;
 		let hours_total = hours_f + hours;
-		let hours = hours_total.trunc();
+		let hours = FloatCore::trunc(hours_total);
 
 		let minutes_f = (hours_total - hours) * MAX_MINUTES as f64;
 		let minutes_total = minutes_f + minutes;
-		let minutes = minutes_total.trunc();
+		let minutes = FloatCore::trunc(minutes_total);
 
 		let seconds_f = (minutes_total - minutes) * MAX_SECONDS as f64;
 		let seconds_total = seconds_f + seconds;
-		let seconds = seconds_total.trunc();
+		let seconds = FloatCore::trunc(seconds_total);
 
-		let nanosecs_f = ((seconds_total - seconds) * 1_000_000_000_f64).trunc() as NanosecondsType;
+		let nanosecs_f =
+			FloatCore::trunc((seconds_total - seconds) * 1_000_000_000_f64) as NanosecondsType;
 		let nanosecs = nanosecs_f + nanoseconds;
 
 		Self {

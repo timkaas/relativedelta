@@ -9,3 +9,11 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+  # Keeps the SHA-pinned actions in .github/workflows current; it updates the version comments too.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    # checks.yml is synced from LunaPinc/standards, which bumps its pins at the source.
+    exclude-paths:
+      - ".github/workflows/checks.yml"
+    schedule:
+      interval: "weekly"

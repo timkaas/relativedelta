@@ -1,9 +1,9 @@
 relativedelta
 =============
 
-[![codecov](https://codecov.io/github/timkaas/relativedelta/graph/badge.svg?token=JN92RJTYZ1)](https://codecov.io/github/timkaas/relativedelta)
-[![Check, Lint & Test](https://github.com/timkaas/relativedelta/actions/workflows/ci.yml/badge.svg)](https://github.com/timkaas/relativedelta/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/timkaas/relativedelta?style=flat-square)](https://github.com/timkaas/relativedelta/blob/master/LICENSE)
+[![codecov](https://codecov.io/github/LunaPinc/relativedelta/graph/badge.svg?token=JN92RJTYZ1)](https://codecov.io/github/LunaPinc/relativedelta)
+[![checks](https://github.com/LunaPinc/relativedelta/actions/workflows/checks.yml/badge.svg)](https://github.com/LunaPinc/relativedelta/actions/workflows/checks.yml)
+[![License](https://img.shields.io/github/license/LunaPinc/relativedelta?style=flat-square)](https://github.com/LunaPinc/relativedelta/blob/main/LICENSE)
 [![crates.io](https://img.shields.io/crates/v/relativedelta?style=flat-square)](https://crates.io/crates/relativedelta)
 [![docs.rs](https://img.shields.io/badge/documentation-docs.rs-orange.svg?style=flat-square)](https://docs.rs/relativedelta/)
 
@@ -41,7 +41,8 @@ a datetime backend.
 
 ### Minimum Supported Rust Version (MSRV)
 
-This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
+The minimum supported Rust version is the `rust-version` in `Cargo.toml`, which crates.io and
+docs.rs also show.
 
 ### Optional features
 
@@ -356,7 +357,7 @@ For more examples, see the [cookbook](docs/cookbook.md).
       and allows for updating values using the `.and_*()` methods.
     - On the **Builder**, all `.with_*()` methods have been removed in favor of just `.and_*()` methods.
 
-5. **Rust Edition**: Updated to Rust edition 2024 with MSRV <!-- MSRV_START -->1.88.0<!-- MSRV_END -->.
+5. **Rust Edition**: Updated to Rust edition 2024 with MSRV 1.85.0.
 
 For more details, see the [migration guide](migration_guide.md).
 
