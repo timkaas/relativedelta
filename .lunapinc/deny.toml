@@ -1,4 +1,5 @@
-# Synced from LunaPinc/standards (stacks/base/files/.lunapinc/deny.toml) by sync/sync.sh; edit it there.
+# Synced from LunaPinc/standards (stacks/base/files/.lunapinc/deny.toml) by sync/sync.py; edit it there,
+# except this repo's own advisory ignores, which the sync keeps.
 # LunaPinc's dependency policy: licences, advisories and sources. cargo-deny reads all of it (the rust
 # stack's pre-push hook); .lunapinc/node-licences reads the licence allowlist below, so keep it one
 # quoted SPDX identifier per line.
@@ -10,8 +11,9 @@ all-features = true
 # Vulnerabilities and unsound code fail everywhere; an unmaintained crate fails only when the
 # workspace depends on it directly.
 unmaintained = "workspace"
-# Every open advisory fails. An ignore names the advisory, the reason and a review date, and gets a
-# line in the affected repo's DECISIONS.md:
+# Every open advisory fails. An ignore every repo needs is added in LunaPinc/standards; one only this
+# repo needs is added here, and the sync keeps it and reports it. Either names the advisory, the reason
+# and a review date, and gets a line in the affected repo's DECISIONS.md:
 #   { id = "RUSTSEC-0000-0000", reason = "…; review 2027-01-01" },
 ignore = [
 	{ id = "RUSTSEC-2026-0543", reason = "chrono stays an optional backend for its users; jiff is recommended for new code; review 2027-06-01" },
