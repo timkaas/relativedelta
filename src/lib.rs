@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! > Rust implementation of `relativedelta` known from Python's [dateutil](https://pypi.org/project/python-dateutil/) library. Calculate dates by adding relative and offset values to a datetime instance. Currently, the [time](https://crates.io/crates/time) and [chrono](https://crates.io/crates/chrono) crates are supported.
+//! > Rust implementation of `relativedelta` known from Python's [dateutil](https://pypi.org/project/python-dateutil/) library. Calculate dates by adding relative and offset values to a datetime instance. Currently, the [time](https://crates.io/crates/time), [chrono](https://crates.io/crates/chrono) and [jiff](https://crates.io/crates/jiff) crates are supported.
 //!
 //! ## Usage
 //!
@@ -21,6 +21,7 @@
 //!
 //! - **chrono**: Enable support for the [chrono](https://crates.io/crates/chrono) crate.
 //! - **time**: Enable support for the [time](https://crates.io/crates/time) crate.
+//! - **jiff**: Enable support for the [jiff](https://crates.io/crates/jiff) crate.
 //! - **serde**: Enable serialization/deserialization via [serde](https://crates.io/crates/serde).
 //!
 //! ## Overview
@@ -172,6 +173,28 @@ let last_day = time::UtcDateTime::now() + RelativeDelta::with_day(1)
 ```
 "
 )]
+#![cfg_attr(
+	feature = "jiff",
+	doc = r"
+With the jiff crate (requires the **jiff** feature):
+
+```
+# use relativedelta::{RelativeDelta, Weekday};
+use jiff::civil::date;
+// Get the last day of the month
+let last_day_of_month = date(2024, 2, 10) + RelativeDelta::with_day(1)
+.and_months(1)
+.and_days(-1)
+.build();
+assert_eq!(last_day_of_month, date(2024, 2, 29));
+// Get the first Monday after one year from a specific date
+let first_monday_after_one_year = date(2024, 2, 10) + RelativeDelta::with_years(1)
+.and_weekday(Some((Weekday::Mon, 1)))
+.build();
+assert_eq!(first_monday_after_one_year, date(2025, 2, 10));
+```
+"
+)]
 //! #### Working with Weekdays
 //!
 //! Get the 3rd Tuesday of next month:
@@ -208,10 +231,18 @@ mod chrono_impl;
 /// `time_impl` is a module that provides implementations for `RelativeDelta` using the time crate.
 mod time_impl;
 
-#[cfg(any(feature = "time", feature = "chrono"))]
+#[cfg(feature = "jiff")]
+/// `jiff_impl` is a module that provides implementations for `RelativeDelta` using the jiff crate.
+mod jiff_impl;
+
+#[cfg(any(feature = "time", feature = "chrono", feature = "jiff"))]
 mod from_error;
 
+/// `shift` is a module that defines the backend-agnostic `Shift` trait behind `RelativeDelta::checked_add`.
+mod shift;
+
 pub use crate::relativedelta::RelativeDelta;
+pub use crate::shift::Shift;
 
 #[cfg(test)]
 mod tests {

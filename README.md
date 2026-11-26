@@ -9,7 +9,7 @@ relativedelta
 
 > **Calendar-aware date arithmetic for Rust.** Add or subtract months and years without off-by-one errors, clamp month ends, target weekdays, and express recurring dates clearly. A better alternative to `Duration` for calendar operations.
 >
-> Works with [chrono](https://crates.io/crates/chrono) and [time](https://crates.io/crates/time) crates. Inspired by [Python's dateutil.relativedelta](https://pypi.org/project/python-dateutil/).
+> Works with [chrono](https://crates.io/crates/chrono), [time](https://crates.io/crates/time) and [jiff](https://crates.io/crates/jiff) crates. Inspired by [Python's dateutil.relativedelta](https://pypi.org/project/python-dateutil/).
 
 ### **[Documentation](https://docs.rs/crate/relativedelta/latest)**
 
@@ -34,7 +34,8 @@ For `chrono`:
 relativedelta = { version = "0.3", features = ["chrono"] }
 ```
 
-For the `time` crate, use `features = ["time"]` instead. The crate itself is
+For the `time` or `jiff` crate, use `features = ["time"]` or `features = ["jiff"]`
+instead; the backend features can be combined. The crate itself is
 feature-free by default so it can be used to construct deltas without choosing
 a datetime backend.
 
@@ -46,6 +47,8 @@ This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
 
 - **chrono**: Enable support for the [chrono](https://crates.io/crates/chrono) crate.
 - **time**: Enable support for the [time](https://crates.io/crates/time) crate.
+- **jiff**: Enable support for the [jiff](https://crates.io/crates/jiff) crate (`civil::Date`,
+  `civil::DateTime`, `Timestamp` and `ZonedDateTime`).
 - **serde**: Enable serialization/deserialization via [serde](https://crates.io/crates/serde).
 - **schemars**: Enable JSON schema generation via [schemars](https://crates.io/crates/schemars).
 - **std**: Enable features that depend on the Rust standard library. Without this feature, the crate operates in `no_std` mode.
@@ -147,13 +150,14 @@ assert_eq!(next_month, NaiveDate::from_ymd_opt(2024, 2, 29).unwrap());
 Unlike a fixed-length `Duration`, adding a calendar month understands that
 February has no 31st day.
 
-When the result may be outside the supported datetime range, use the
-backend-specific checked method instead of the `+` operator:
+When the result may be outside the supported datetime range, use
+`checked_add` instead of the `+` operator. It works with every supported type of
+every backend:
 
 ```rust
 let result = RelativeDelta::add_months(1)
     .build()
-    .checked_add_date(&date);
+    .checked_add(&date);
 ```
 
 The operator remains convenient for ordinary calculations and preserves the
@@ -266,6 +270,19 @@ let last_day = time::UtcDateTime::now() + RelativeDelta::with_day(1)
 .and_months(1)
 .and_days( - 1)
 .build();
+```
+
+With the jiff crate (requires the **jiff** feature):
+
+```rust
+use jiff::civil::date;
+
+// Get the last day of a month
+let last_day = date(2024, 2, 10) + RelativeDelta::with_day(1)
+.and_months(1)
+.and_days(-1)
+.build();
+assert_eq!(last_day, date(2024, 2, 29));
 ```
 
 #### Working with Weekdays

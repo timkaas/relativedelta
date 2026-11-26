@@ -135,6 +135,20 @@ impl Weekday {
 		let rhs = other as u8;
 		if lhs < rhs { 7 + lhs - rhs } else { lhs - rhs }
 	}
+
+	/// Returns the signed number of days from a date falling on `current` to the `nth` occurrence of
+	/// `self`, following dateutil: the date itself counts as the first occurrence in either
+	/// direction, a negative `nth` searches backwards, and an `nth` of 0 behaves as 1.
+	#[cfg(any(feature = "chrono", feature = "time", feature = "jiff"))]
+	pub(crate) fn jump_days_from(self, current: Self, nth: i64) -> i64 {
+		let extra_weeks = (nth.saturating_abs().max(1) - 1).saturating_mul(7);
+		if nth >= 0 {
+			extra_weeks.saturating_add(i64::from(self.days_since(current)))
+		}
+		else {
+			-extra_weeks.saturating_add(i64::from(current.days_since(self)))
+		}
+	}
 }
 
 impl fmt::Display for Weekday {
@@ -208,6 +222,28 @@ mod tests {
 	use similar_asserts::assert_eq;
 
 	use super::*;
+
+	#[test]
+	#[cfg(any(feature = "chrono", feature = "time", feature = "jiff"))]
+	fn test_jump_days_from() {
+		use Weekday::{Fri, Mon, Tue, Wed};
+		// Forward: the current day counts as the first occurrence.
+		assert_eq!(Mon.jump_days_from(Mon, 1), 0);
+		assert_eq!(Mon.jump_days_from(Wed, 1), 5);
+		assert_eq!(Mon.jump_days_from(Wed, 2), 12);
+		assert_eq!(Fri.jump_days_from(Mon, 1), 4);
+		// An nth of 0 behaves as 1, as in dateutil.
+		assert_eq!(Mon.jump_days_from(Wed, 0), 5);
+		assert_eq!(Mon.jump_days_from(Mon, 0), 0);
+		// Backward.
+		assert_eq!(Mon.jump_days_from(Mon, -1), 0);
+		assert_eq!(Mon.jump_days_from(Wed, -1), -2);
+		assert_eq!(Tue.jump_days_from(Mon, -1), -6);
+		assert_eq!(Tue.jump_days_from(Mon, -2), -13);
+		// Extreme nth saturates instead of overflowing.
+		assert_eq!(Mon.jump_days_from(Mon, i64::MAX), i64::MAX);
+		assert_eq!(Mon.jump_days_from(Mon, i64::MIN), -i64::MAX);
+	}
 
 	#[test]
 	fn test_days_since() {

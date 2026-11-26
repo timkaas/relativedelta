@@ -18,15 +18,17 @@ path = "src/lib.rs"
 
 [features]
 default = ["num-traits/libm"]
-std = ["chrono?/std", "chrono?/clock", "time?/std", "num-integer/std", "num-traits/std", "thiserror/std"]
+std = ["chrono?/std", "chrono?/clock", "time?/std", "jiff?/std", "num-integer/std", "num-traits/std", "thiserror/std"]
 time = ["dep:time", "dep:time-core"]
 chrono = ["dep:chrono"]
+jiff = ["dep:jiff"]
 serde = ["std", "dep:serde", "chrono?/serde", "time?/serde"]
 schemars = ["dep:schemars"]
 
 [dependencies]
 chrono = { version = "0.4.45", optional = true, default-features = false }
 time = { version = "0.3.55", optional = true, default-features = false }
+jiff = { version = "1.0.3", optional = true, default-features = false }
 num-integer = { version = "0.1.47", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
 serde = { version = "1.0.229", optional = true, features = ["derive"] }
@@ -37,6 +39,8 @@ schemars = { version = "1.2.3", optional = true }
 
 [dev-dependencies]
 anyhow = "1.0"
+# POSIX time zones (`alloc`) let the tests cover DST gaps without bundling a tz database.
+jiff = { version = "1.0.3", default-features = false, features = ["alloc"] }
 serde_json = "1.0"
 similar-asserts = "2.0"
 

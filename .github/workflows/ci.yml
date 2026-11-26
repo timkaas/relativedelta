@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: [ chrono, time, "\"chrono time\"", serde, std ]
+        feature: [ chrono, time, jiff, "\"chrono time\"", "\"chrono jiff\"", serde, std ]
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: [ chrono, time, "\"chrono time\"", serde, std ]
+        feature: [ chrono, time, jiff, "\"chrono time\"", "\"chrono jiff\"", serde, std ]
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: [ chrono, time, "\"chrono time\"", serde, std ]
+        feature: [ chrono, time, jiff, "\"chrono time\"", "\"chrono jiff\"", serde, std ]
         rust:
           - ${{ needs.extract-msrv.outputs.msrv }}
           - stable

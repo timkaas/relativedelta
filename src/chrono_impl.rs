@@ -7,9 +7,10 @@ use core::ops;
 use chrono::{Datelike, Timelike};
 use num_integer::Integer;
 
-use crate::RelativeDelta;
 use crate::from_error::FromError;
 use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
+use crate::shift::sealed::Shift;
+use crate::{RelativeDelta, Weekday};
 
 macro_rules! impl_add_sub {
 	($base:ty, $ret:ty) => {
@@ -186,19 +187,10 @@ impl RelativeDelta {
 		D: Datelike + CheckedAddDuration,
 	{
 		if let Some((weekday, nth)) = self.weekday() {
-			let mut jumpdays = (nth.abs() - 1) * 7;
-			if nth > 0 {
-				jumpdays += i64::from(
-					7 - result.weekday().num_days_from_monday() + u32::from(weekday.num_days_from_monday()),
-				);
-			}
-			else {
-				jumpdays += i64::from(
-					(result.weekday().num_days_from_monday() - u32::from(weekday.num_days_from_monday())) % 7,
-				);
-				jumpdays *= -1;
-			}
-			result.checked_add_duration(chrono::Duration::days(jumpdays))
+			let current = Weekday::from(u8::try_from(result.weekday().num_days_from_monday()).ok()?);
+			result.checked_add_duration(chrono::Duration::try_days(
+				weekday.jump_days_from(current, nth),
+			)?)
 		}
 		else {
 			Some(result)
@@ -422,6 +414,24 @@ impl RelativeDelta {
 }
 
 impl_add_sub!(chrono::NaiveDate, chrono::NaiveDate);
+
+impl Shift for chrono::NaiveDate {
+	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
+		delta.checked_add_date(self)
+	}
+}
+
+impl Shift for chrono::NaiveDateTime {
+	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
+		delta.checked_add_naive_datetime(self)
+	}
+}
+
+impl<Tz: chrono::TimeZone> Shift for chrono::DateTime<Tz> {
+	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
+		delta.checked_add_datetime(self)
+	}
+}
 
 impl TryFrom<RelativeDelta> for chrono::NaiveDateTime {
 	type Error = FromError;
@@ -788,6 +798,47 @@ mod tests {
 		assert_eq!(naive_dt.minute(), 35);
 		assert_eq!(naive_dt.second(), 48);
 		Ok(())
+	}
+
+	#[test]
+	fn test_weekday_follows_dateutil() {
+		let monday = chrono::NaiveDate::from_ymd_opt(2021, 5, 3).unwrap();
+		let day = |d| chrono::NaiveDate::from_ymd_opt(2021, 5, d).unwrap();
+		let with_weekday = |weekday, nth| RelativeDelta::with_weekday(weekday, nth).build();
+		// The date itself is the first occurrence of its own weekday, in either direction.
+		assert_eq!(monday + with_weekday(Weekday::Mon, 1), monday);
+		assert_eq!(monday + with_weekday(Weekday::Mon, -1), monday);
+		assert_eq!(monday + with_weekday(Weekday::Mon, 2), day(10));
+		assert_eq!(monday + with_weekday(Weekday::Tue, 1), day(4));
+		assert_eq!(
+			monday + with_weekday(Weekday::Tue, -1),
+			chrono::NaiveDate::from_ymd_opt(2021, 4, 27).unwrap()
+		);
+		assert!(
+			with_weekday(Weekday::Mon, i64::MAX)
+				.checked_add_date(&monday)
+				.is_none()
+		);
+	}
+
+	#[test]
+	fn test_checked_add_is_backend_agnostic() {
+		let date = chrono::NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
+		let next_month = RelativeDelta::with_months(1).build();
+		assert_eq!(
+			next_month.checked_add(&date),
+			next_month.checked_add_date(&date)
+		);
+		let datetime = date.and_hms_opt(12, 0, 0).unwrap();
+		assert_eq!(
+			next_month.checked_add(&datetime),
+			next_month.checked_add_naive_datetime(&datetime)
+		);
+		let utc = datetime.and_utc();
+		assert_eq!(
+			next_month.checked_add(&utc),
+			next_month.checked_add_datetime(&utc)
+		);
 	}
 
 	#[test]
