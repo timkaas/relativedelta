@@ -109,6 +109,14 @@ Rules a principle conflicts with are fixed, or defended in `DECISIONS.md`.
 
 The reasons and incidents behind these rules: `evidence-log.md` in `LunaPinc/standards` (private).
 
+## GitHub Actions
+
+Every `uses:` names a full commit SHA with its version in a comment
+(`actions/checkout@<sha> # v7.0.1`); the `pinact` hook fails on a tag or a branch, and `pinact run`
+(`brew install pinact`) pins them. Dependabot keeps the pins current: a repo with workflows besides
+the synced `checks.yml` lists `github-actions` in `.github/dependabot.yml` with
+`exclude-paths: [.github/workflows/checks.yml]`, since LunaPinc/standards bumps that file.
+
 ## Checks
 
 Every deterministic check is a prek hook in `prek.toml`, and CI runs the same hooks. Before
