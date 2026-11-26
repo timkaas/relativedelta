@@ -34,3 +34,13 @@ hooks = [
 ]
 
 # END LunaPinc/standards
+
+# relativedelta's own checks: each feature set alone, a no_std build and the MSRV. CI installs their
+# toolchains through .github/ci-setup.sh; locally, each script names the command when one is missing.
+[[repos]]
+repo = "local"
+hooks = [
+    { id = "feature-matrix", name = "clippy and tests per feature set", entry = "scripts/feature-matrix.sh", language = "system", pass_filenames = false, files = "\\.(rs|md)$|Cargo\\.toml$|^scripts/", stages = ["pre-push"] },
+    { id = "no-std", name = "no_std build (thumbv7em-none-eabihf)", entry = "scripts/no-std.sh", language = "system", pass_filenames = false, files = "\\.rs$|Cargo\\.toml$|^scripts/", stages = ["pre-push"] },
+    { id = "msrv", name = "tests on the MSRV", entry = "scripts/msrv.sh", language = "system", pass_filenames = false, files = "\\.(rs|md)$|Cargo\\.toml$|^scripts/", stages = ["pre-push"] },
+]

@@ -15,7 +15,8 @@
 //!
 //! ### Minimum Supported Rust Version (MSRV)
 //!
-//! This crate supports Rust <!-- MSRV_START -->1.88.0<!-- MSRV_END --> or later.
+//! The minimum supported Rust version is the `rust-version` in `Cargo.toml`, which crates.io and
+//! docs.rs also show.
 //!
 //! ### Optional features
 //!
