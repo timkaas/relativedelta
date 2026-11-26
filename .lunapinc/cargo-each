@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Synced from LunaPinc/standards (stacks/rust/files/.lunapinc/cargo-each) by sync/sync.sh; edit it there.
+# Synced from LunaPinc/standards (stacks/rust/files/.lunapinc/cargo-each) by sync/sync.py; edit it there.
 # Runs one cargo command in every Cargo workspace of the repo, from the repo root, stopping at the
 # first failure:  .lunapinc/cargo-each [+toolchain] <subcommand> [args...]
 # A workspace root is a tracked Cargo.toml with no tracked Cargo.toml in a directory above it.
