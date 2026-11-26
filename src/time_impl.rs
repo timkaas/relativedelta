@@ -181,11 +181,20 @@ mod tests {
 		second: SecondType,
 		nanosecond: NanosecondType,
 	) -> anyhow::Result<time::PrimitiveDateTime> {
-		let dt = time::Date::from_calendar_date(year as i32, unsafe { month_unchecked(month) }, day)?
-			.with_hms_nano(hour, minute, second, nanosecond)?;
+		let dt =
+			time::Date::from_calendar_date(i32::try_from(year)?, time::Month::try_from(month)?, day)?
+				.with_hms_nano(hour, minute, second, nanosecond)?;
 		Ok(dt)
 	}
 	#[test]
+	#[allow(
+		clippy::op_ref,
+		reason = "exercises every owned and borrowed operator impl"
+	)]
+	#[allow(
+		clippy::too_many_lines,
+		reason = "one assertion per case, kept together like the other backends"
+	)]
 	fn test_add() -> anyhow::Result<()> {
 		let year = 2020;
 		let month = 4;
@@ -314,6 +323,10 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(
+		clippy::op_ref,
+		reason = "exercises every owned and borrowed operator impl"
+	)]
 	fn test_sub() -> anyhow::Result<()> {
 		let year = 2020;
 		let month = 4;

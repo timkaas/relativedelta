@@ -465,6 +465,14 @@ mod tests {
 	use crate::{RelativeDelta, Weekday};
 
 	#[test]
+	#[allow(
+		clippy::op_ref,
+		reason = "exercises every owned and borrowed operator impl"
+	)]
+	#[allow(
+		clippy::too_many_lines,
+		reason = "one assertion per case, kept together like the other backends"
+	)]
 	fn test_add() -> anyhow::Result<()> {
 		let year = 2020;
 		let month = 4;
@@ -641,6 +649,10 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(
+		clippy::op_ref,
+		reason = "exercises every owned and borrowed operator impl"
+	)]
 	fn test_sub() -> anyhow::Result<()> {
 		let year = 2020;
 		let month = 4;
@@ -710,7 +722,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_naive() -> anyhow::Result<()> {
+	fn test_naive() {
 		let nd = chrono::NaiveDate::from_ymd_opt(2020, 4, 28).unwrap();
 		let ndt = nd.and_hms_opt(12, 35, 48).unwrap();
 
@@ -775,8 +787,6 @@ mod tests {
 		// NaiveDate + 1 hour should still be same NaiveDate because it only adds days
 		assert_eq!(nd + add_1_hour, nd);
 		assert_eq!(ndt + add_1_hour, nd.and_hms_opt(13, 35, 48).unwrap());
-
-		Ok(())
 	}
 
 	#[test]

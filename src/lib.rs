@@ -287,6 +287,10 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(
+		clippy::approx_constant,
+		reason = "3.14 is an arbitrary input, not an approximation of pi"
+	)]
 	fn test_init_with_float() {
 		let ddt = RelativeDelta::ysmsdshsmsssns_f(1.5, -18.0, 0.0, 0.0, 0.0, 0.0, 0).build();
 		assert_eq!(
@@ -300,12 +304,12 @@ mod tests {
 			RelativeDelta::ysmsdshsmsssns_f(-0.42, -15.7, -12.3, -5.32, 3.14, 0.15, 22232).build();
 		let r = RelativeDelta::with_years(-1)
 			.and_months(-8)
-			.and_months_f(-0.7399999999999984)
+			.and_months_f(-0.739_999_999_999_998_4)
 			.and_days(-12)
 			.and_hours(-12)
 			.and_minutes(-28)
 			.and_seconds(-3)
-			.and_nanoseconds(-449977768)
+			.and_nanoseconds(-449_977_768)
 			.build();
 		assert_eq!(ddt, r);
 	}
@@ -313,7 +317,7 @@ mod tests {
 	#[test]
 	fn test_is_empty() {
 		let empty = RelativeDelta::default();
-		assert!(empty.is_empty())
+		assert!(empty.is_empty());
 	}
 }
 

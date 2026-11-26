@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Synced from LunaPinc/standards (stacks/rust/files/.lunapinc/cargo-each) by sync/sync.sh; edit it there.
+# Runs one cargo command in every Cargo workspace of the repo, from the repo root, stopping at the
+# first failure:  .lunapinc/cargo-each [+toolchain] <subcommand> [args...]
+# A workspace root is a tracked Cargo.toml with no tracked Cargo.toml in a directory above it.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+toolchain=()
+if [[ "${1:-}" == +* ]]; then
+	toolchain=("$1")
+	shift
+fi
+subcommand=$1
+shift
+
+roots=$(git ls-files '*Cargo.toml' | xargs -n1 dirname | awk '
+	{ dirs[NR] = $0 }
+	END {
+		for (i = 1; i <= NR; i++) {
+			root = 1
+			for (j = 1; j <= NR; j++)
+				if (j != i && (dirs[j] == "." || index(dirs[i] "/", dirs[j] "/") == 1) && dirs[j] != dirs[i]) root = 0
+			if (root) print dirs[i]
+		}
+	}' | sort -u)
+
+for root in $roots; do
+	echo "-- $root"
+	cargo ${toolchain[@]+"${toolchain[@]}"} "$subcommand" --manifest-path "$root/Cargo.toml" "$@"
+done
