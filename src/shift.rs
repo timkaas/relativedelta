@@ -22,7 +22,8 @@ pub(crate) mod sealed {
 /// enabled features.
 ///
 /// - **chrono**: `chrono::NaiveDate`, `chrono::NaiveDateTime` and `chrono::DateTime<Tz>`.
-/// - **time**: `time::PrimitiveDateTime`, `time::OffsetDateTime` and `time::UtcDateTime`.
+/// - **time**: `time::Date`, `time::PrimitiveDateTime`, `time::OffsetDateTime` and
+///   `time::UtcDateTime`.
 /// - **jiff**: `jiff::civil::Date`, `jiff::civil::DateTime`, `jiff::Timestamp` and
 ///   `jiff::ZonedDateTime`.
 ///

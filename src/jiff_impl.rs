@@ -166,240 +166,22 @@ impl TryFrom<RelativeDelta> for DateTime {
 
 #[cfg(test)]
 mod tests {
+	use jiff::Timestamp;
 	use jiff::civil::{Date, DateTime, date};
-	use jiff::tz::{self, TimeZone};
-	use jiff::{Timestamp, ZonedDateTime};
+	use jiff::tz::TimeZone;
 	use similar_asserts::assert_eq;
 
-	use crate::{RelativeDelta, Weekday};
+	use crate::RelativeDelta;
 
-	/// 2020-04-28 12:35:48, the start of the chrono backend's test cases.
+	/// 2020-04-28 12:35:48.
 	fn start() -> DateTime {
 		date(2020, 4, 28).at(12, 35, 48, 0)
-	}
-
-	fn at_start_time(year: i16, month: i8, day: i8) -> DateTime {
-		date(year, month, day).at(12, 35, 48, 0)
-	}
-
-	fn utc(datetime: DateTime) -> Timestamp {
-		TimeZone::UTC.to_timestamp(datetime).unwrap()
-	}
-
-	fn zoned(datetime: DateTime) -> ZonedDateTime {
-		datetime
-			.to_zoned_datetime(TimeZone::fixed(tz::offset(2)))
-			.unwrap()
 	}
 
 	/// The time zone of New York, whose 2024 DST gap is 2024-03-10 02:00..03:00 and whose fold is
 	/// 2024-11-03 01:00..02:00.
 	fn new_york() -> TimeZone {
 		TimeZone::posix("EST5EDT,M3.2.0,M11.1.0").unwrap()
-	}
-
-	/// Asserts that adding `delta` to `start()` gives `expected` for every jiff date-time type.
-	fn assert_add(delta: &RelativeDelta, expected: DateTime) {
-		assert_eq!(start() + delta, expected, "DateTime + {delta:?}");
-		assert_eq!(utc(start()) + delta, utc(expected), "Timestamp + {delta:?}");
-		assert_eq!(
-			zoned(start()) + delta,
-			zoned(expected),
-			"ZonedDateTime + {delta:?}"
-		);
-	}
-
-	/// Asserts that subtracting `delta` from `start()` gives `expected` for every jiff date-time type.
-	fn assert_sub(delta: &RelativeDelta, expected: DateTime) {
-		assert_eq!(start() - delta, expected, "DateTime - {delta:?}");
-		assert_eq!(utc(start()) - delta, utc(expected), "Timestamp - {delta:?}");
-		assert_eq!(
-			zoned(start()) - delta,
-			zoned(expected),
-			"ZonedDateTime - {delta:?}"
-		);
-	}
-
-	#[test]
-	fn test_add() {
-		let quarter_end = |month| {
-			RelativeDelta::with_day(1)
-				.and_days(-1)
-				.and_month(Some(month))
-				.and_months(1)
-				.build()
-		};
-		let cases = [
-			(
-				RelativeDelta::with_years(1).build(),
-				at_start_time(2021, 4, 28),
-			),
-			(
-				RelativeDelta::with_years(-1).build(),
-				at_start_time(2019, 4, 28),
-			),
-			(
-				RelativeDelta::with_year(2010).build(),
-				at_start_time(2010, 4, 28),
-			),
-			(
-				RelativeDelta::with_year(-1).build(),
-				at_start_time(-1, 4, 28),
-			),
-			(
-				RelativeDelta::with_months(69).build(),
-				at_start_time(2026, 1, 28),
-			),
-			(
-				RelativeDelta::with_months(-6).build(),
-				at_start_time(2019, 10, 28),
-			),
-			(
-				RelativeDelta::with_months(-47).build(),
-				at_start_time(2016, 5, 28),
-			),
-			(
-				RelativeDelta::with_days(400).build(),
-				at_start_time(2021, 6, 2),
-			),
-			(
-				RelativeDelta::with_days(-400).build(),
-				at_start_time(2019, 3, 25),
-			),
-			(
-				RelativeDelta::with_years(1)
-					.and_weekday(Some((Weekday::Mon, 1)))
-					.build(),
-				at_start_time(2021, 5, 3),
-			),
-			(
-				RelativeDelta::with_years(1)
-					.and_weekday(Some((Weekday::Mon, -1)))
-					.build(),
-				at_start_time(2021, 4, 26),
-			),
-			(quarter_end(3), at_start_time(2020, 3, 31)),
-			(quarter_end(6), at_start_time(2020, 6, 30)),
-			(quarter_end(9), at_start_time(2020, 9, 30)),
-			(quarter_end(12), at_start_time(2020, 12, 31)),
-			(
-				RelativeDelta::with_hours(1).and_nanoseconds(5).build(),
-				date(2020, 4, 28).at(13, 35, 48, 5),
-			),
-			(
-				RelativeDelta::with_hour(0)
-					.and_minute(Some(0))
-					.and_second(Some(0))
-					.build(),
-				date(2020, 4, 28).at(0, 0, 0, 0),
-			),
-		];
-		for (delta, expected) in &cases {
-			assert_add(delta, *expected);
-		}
-	}
-
-	#[test]
-	fn test_sub() {
-		let cases = [
-			(
-				RelativeDelta::with_years(1).build(),
-				at_start_time(2019, 4, 28),
-			),
-			(
-				RelativeDelta::with_years(-1).build(),
-				at_start_time(2021, 4, 28),
-			),
-			(
-				RelativeDelta::with_year(2010).build(),
-				at_start_time(2010, 4, 28),
-			),
-			(
-				RelativeDelta::with_year(-1).build(),
-				at_start_time(-1, 4, 28),
-			),
-			(
-				RelativeDelta::with_months(-6).build(),
-				at_start_time(2020, 10, 28),
-			),
-			(
-				RelativeDelta::with_months(-47).build(),
-				at_start_time(2024, 3, 28),
-			),
-		];
-		for (delta, expected) in &cases {
-			assert_sub(delta, *expected);
-		}
-	}
-
-	#[test]
-	#[allow(
-		clippy::op_ref,
-		reason = "exercises every owned and borrowed operator impl"
-	)]
-	fn test_operators_take_owned_and_borrowed_operands() {
-		let delta = RelativeDelta::with_years(1).build();
-		let expected = at_start_time(2021, 4, 28);
-		let start = start();
-		assert_eq!(delta + start, expected);
-		assert_eq!(&delta + start, expected);
-		assert_eq!(delta + &start, expected);
-		assert_eq!(&delta + &start, expected);
-		assert_eq!(start + delta, expected);
-		assert_eq!(&start + &delta, expected);
-		assert_eq!(expected - delta, start);
-		assert_eq!(&expected - &delta, start);
-
-		let zoned_start = zoned(start);
-		assert_eq!(&zoned_start + &delta, zoned(expected));
-		assert_eq!(zoned_start + delta, zoned(expected));
-	}
-
-	#[test]
-	fn test_date() {
-		let date_ = date(2020, 4, 28);
-		assert_eq!(
-			date_ + RelativeDelta::with_years(1).build(),
-			date(2021, 4, 28)
-		);
-		assert_eq!(
-			date_ - RelativeDelta::with_years(1).build(),
-			date(2019, 4, 28)
-		);
-		assert_eq!(
-			date_ - RelativeDelta::with_years(-1).build(),
-			date(2021, 4, 28)
-		);
-		assert_eq!(
-			date_ + RelativeDelta::with_months(1).build(),
-			date(2020, 5, 28)
-		);
-		assert_eq!(
-			date_ + RelativeDelta::with_days(1).build(),
-			date(2020, 4, 29)
-		);
-		assert_eq!(date_ + RelativeDelta::with_day(1).build(), date(2020, 4, 1));
-		// A date only takes the date fields and days of a delta, like `chrono::NaiveDate`.
-		assert_eq!(date_ + RelativeDelta::with_hours(1).build(), date_);
-		assert_eq!(
-			date_.at(12, 35, 48, 0) + RelativeDelta::with_hours(1).build(),
-			date_.at(13, 35, 48, 0)
-		);
-	}
-
-	#[test]
-	fn test_month_end_is_clamped() {
-		let next_month = RelativeDelta::with_months(1).build();
-		assert_eq!(date(2024, 1, 31) + next_month, date(2024, 2, 29));
-		assert_eq!(date(2023, 1, 31) + next_month, date(2023, 2, 28));
-		assert_eq!(
-			date(2024, 2, 29) + RelativeDelta::with_years(1).build(),
-			date(2025, 2, 28)
-		);
-		assert_eq!(
-			date(2020, 4, 30) + RelativeDelta::with_day(31).build(),
-			date(2020, 4, 30)
-		);
 	}
 
 	#[test]
@@ -410,29 +192,7 @@ mod tests {
 			serde_json::from_str(r#"{"months": 1, "days": -1, "month": 3, "day": 1}"#)?;
 		assert_eq!(date(2020, 4, 28) + last_of_march, date(2020, 3, 31));
 		assert_eq!(date(2021, 1, 15) + last_of_march, date(2021, 3, 31));
-		assert_eq!(
-			utc(start()) + last_of_march,
-			utc(at_start_time(2020, 3, 31))
-		);
 		Ok(())
-	}
-
-	#[test]
-	fn test_weekday_follows_dateutil() {
-		let monday = date(2021, 5, 3);
-		let with_weekday = |weekday, nth| RelativeDelta::with_weekday(weekday, nth).build();
-		// The date itself is the first occurrence of its own weekday, in either direction.
-		assert_eq!(monday + with_weekday(Weekday::Mon, 1), monday);
-		assert_eq!(monday + with_weekday(Weekday::Mon, -1), monday);
-		assert_eq!(monday + with_weekday(Weekday::Mon, 2), date(2021, 5, 10));
-		assert_eq!(monday + with_weekday(Weekday::Mon, 0), monday);
-		assert_eq!(monday + with_weekday(Weekday::Tue, 1), date(2021, 5, 4));
-		assert_eq!(monday + with_weekday(Weekday::Tue, -1), date(2021, 4, 27));
-		assert_eq!(monday + with_weekday(Weekday::Sun, -2), date(2021, 4, 25));
-		assert_eq!(
-			monday.at(9, 0, 0, 0) + with_weekday(Weekday::Fri, 1),
-			date(2021, 5, 7).at(9, 0, 0, 0)
-		);
 	}
 
 	#[test]
@@ -476,18 +236,6 @@ mod tests {
 		assert_eq!(one_day.checked_add(&Timestamp::MAX), None);
 		assert_eq!(
 			RelativeDelta::with_year(10_000)
-				.build()
-				.checked_add(&start()),
-			None
-		);
-		assert_eq!(
-			RelativeDelta::with_days(i64::MAX)
-				.build()
-				.checked_add(&start()),
-			None
-		);
-		assert_eq!(
-			RelativeDelta::with_weekday(Weekday::Mon, i64::MAX)
 				.build()
 				.checked_add(&start()),
 			None

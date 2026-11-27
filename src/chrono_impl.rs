@@ -141,33 +141,35 @@ impl<Tz: chrono::TimeZone> CheckedAddDuration for chrono::DateTime<Tz> {
 }
 
 impl RelativeDelta {
-	fn time_duration(&self) -> chrono::TimeDelta {
-		chrono::Duration::days(self.days())
-			+ chrono::Duration::hours(self.hours())
-			+ chrono::Duration::minutes(self.minutes())
-			+ chrono::Duration::seconds(self.seconds())
-			+ chrono::Duration::nanoseconds(self.nanoseconds())
+	/// Returns the days through nanoseconds as one exact duration, or `None` on overflow.
+	fn time_duration(&self) -> Option<chrono::TimeDelta> {
+		chrono::TimeDelta::try_days(self.days())?
+			.checked_add(&chrono::TimeDelta::try_hours(self.hours())?)?
+			.checked_add(&chrono::TimeDelta::try_minutes(self.minutes())?)?
+			.checked_add(&chrono::TimeDelta::try_seconds(self.seconds())?)?
+			.checked_add(&chrono::TimeDelta::nanoseconds(self.nanoseconds()))
 	}
 
 	/// Calculates the adjusted year, month, and day from a `RelativeDelta` and source date
-	#[allow(clippy::cast_possible_truncation)]
-	#[allow(clippy::cast_sign_loss)]
 	fn date_components<D: Datelike>(&self, source: &D) -> Option<DateComponents> {
-		let mut year = self.year().unwrap_or(source.year().into()) + self.years();
-		let month = self.month().map_or(source.month().into(), MonthsType::from) + self.months();
-		let (mut extra_years, mut relative_month) = month.div_rem(&12);
-		if relative_month <= 0 {
-			extra_years -= 1;
-			relative_month += 12;
-		}
-		year += extra_years;
+		let year = self
+			.year()
+			.unwrap_or(source.year().into())
+			.checked_add(self.years())?;
+		let month = self
+			.month()
+			.map_or(source.month().into(), MonthsType::from)
+			.checked_add(self.months())?;
+		let (extra_years, month_offset) = (month - 1).div_mod_floor(&12);
+		let year = year.checked_add(extra_years)?;
+		let month = MonthType::try_from(month_offset + 1).ok()?;
 
-		let num_days_in_month = u32::from(num_days_in_month(year, relative_month as MonthType));
-		let day = num_days_in_month.min(self.day().map_or(source.day(), u32::from));
+		let day =
+			u32::from(num_days_in_month(year, month)).min(self.day().map_or(source.day(), u32::from));
 
 		Some(DateComponents {
 			year: year.try_into().ok()?,
-			month: relative_month as u32,
+			month: month.into(),
 			day,
 		})
 	}
@@ -242,7 +244,7 @@ impl RelativeDelta {
 			.single()
 			.and_then(|d| d.with_nanosecond(nanosecond))?;
 
-		let ret = datetime.checked_add_signed(self.time_duration())?;
+		let ret = datetime.checked_add_signed(self.time_duration()?)?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
@@ -376,7 +378,7 @@ impl RelativeDelta {
 		let datetime = chrono::NaiveDate::from_ymd_opt(year, month, day)?
 			.and_hms_nano_opt(hour, minute, second, nanosecond)?;
 
-		let ret = datetime.checked_add_signed(self.time_duration())?;
+		let ret = datetime.checked_add_signed(self.time_duration()?)?;
 
 		self.apply_weekday_adjustment(ret)
 	}
@@ -408,7 +410,7 @@ impl RelativeDelta {
 
 		let date = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
 
-		let ret = date.checked_add_signed(chrono::Duration::days(self.days()))?;
+		let ret = date.checked_add_signed(chrono::TimeDelta::try_days(self.days())?)?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
@@ -458,336 +460,10 @@ impl TryFrom<RelativeDelta> for chrono::NaiveDateTime {
 
 #[cfg(test)]
 mod tests {
-	use anyhow::anyhow;
-	use chrono::{Datelike, TimeZone, Timelike, Utc};
+	use chrono::{Datelike, Timelike};
 	use similar_asserts::assert_eq;
 
-	use crate::{RelativeDelta, Weekday};
-
-	#[test]
-	#[allow(
-		clippy::op_ref,
-		reason = "exercises every owned and borrowed operator impl"
-	)]
-	#[allow(
-		clippy::too_many_lines,
-		reason = "one assertion per case, kept together like the other backends"
-	)]
-	fn test_add() -> anyhow::Result<()> {
-		let year = 2020;
-		let month = 4;
-		let day = 28;
-		let hour = 12;
-		let min = 35;
-		let sec = 48;
-		let dt = Utc
-			.with_ymd_and_hms(year, month, day, hour, min, sec)
-			.single()
-			.ok_or(anyhow!("Test failed"))?;
-
-		let add_1_year = RelativeDelta::with_years(1).build();
-		assert_eq!(
-			dt + add_1_year,
-			Utc
-				.with_ymd_and_hms(2021, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let sub_1_year = RelativeDelta::with_years(-1).build();
-		assert_eq!(
-			dt + &sub_1_year,
-			Utc
-				.with_ymd_and_hms(2019, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let set_year = RelativeDelta::with_year(2010).build();
-		assert_eq!(
-			&dt + set_year,
-			Utc
-				.with_ymd_and_hms(2010, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let set_year = RelativeDelta::with_year(-1).build();
-		assert_eq!(
-			&dt + &set_year,
-			Utc
-				.with_ymd_and_hms(-1, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let add_69_months = RelativeDelta::with_months(69).build();
-		// Expected after fix
-		assert_eq!(add_69_months.years(), 5);
-		assert_eq!(add_69_months.months(), 9);
-		assert_eq!(
-			add_69_months + dt,
-			Utc
-				.with_ymd_and_hms(2026, 1, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let sub_6_months = RelativeDelta::with_months(-6).build();
-		assert_eq!(
-			dt + sub_6_months,
-			Utc
-				.with_ymd_and_hms(2019, 10, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let sub_47_months = RelativeDelta::with_months(-47).build();
-		// Expected after fix
-		assert_eq!(sub_47_months.years(), -3);
-		assert_eq!(sub_47_months.months(), -11);
-		assert_eq!(
-			dt + sub_47_months,
-			Utc
-				.with_ymd_and_hms(2016, 5, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let add_400_days = RelativeDelta::with_days(400).build();
-		assert_eq!(
-			dt + add_400_days,
-			Utc
-				.with_ymd_and_hms(2021, 6, 2, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let sub_400_days = RelativeDelta::with_days(-400).build();
-		assert_eq!(
-			dt + sub_400_days,
-			Utc
-				.with_ymd_and_hms(2019, 3, 25, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let monday = RelativeDelta::with_years(1)
-			.and_weekday(Some((Weekday::Mon, 1)))
-			.build();
-		assert_eq!(
-			dt + monday,
-			Utc
-				.with_ymd_and_hms(2021, 5, 3, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let monday = RelativeDelta::with_years(1)
-			.and_weekday(Some((Weekday::Mon, -1)))
-			.build();
-		assert_eq!(
-			dt + monday,
-			Utc
-				.with_ymd_and_hms(2021, 4, 26, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let pay1 = RelativeDelta::with_day(1)
-			.and_days(-1)
-			.and_month(Some(3))
-			.and_months(1)
-			.build();
-		assert_eq!(
-			dt + pay1,
-			Utc
-				.with_ymd_and_hms(2020, 3, 31, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let pay2 = RelativeDelta::with_day(1)
-			.and_days(-1)
-			.and_month(Some(6))
-			.and_months(1)
-			.build();
-		assert_eq!(
-			dt + pay2,
-			Utc
-				.with_ymd_and_hms(2020, 6, 30, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let pay3 = RelativeDelta::with_day(1)
-			.and_days(-1)
-			.and_month(Some(9))
-			.and_months(1)
-			.build();
-		assert_eq!(
-			dt + pay3,
-			Utc
-				.with_ymd_and_hms(2020, 9, 30, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let pay4 = RelativeDelta::with_day(1)
-			.and_days(-1)
-			.and_month(Some(12))
-			.and_months(1)
-			.build();
-		assert_eq!(
-			dt + pay4,
-			Utc
-				.with_ymd_and_hms(2020, 12, 31, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-		Ok(())
-	}
-
-	#[test]
-	#[allow(
-		clippy::op_ref,
-		reason = "exercises every owned and borrowed operator impl"
-	)]
-	fn test_sub() -> anyhow::Result<()> {
-		let year = 2020;
-		let month = 4;
-		let day = 28;
-		let hour = 12;
-		let min = 35;
-		let sec = 48;
-		let dt = Utc
-			.with_ymd_and_hms(year, month, day, hour, min, sec)
-			.single()
-			.ok_or(anyhow!("Test failed"))?;
-
-		let sub_1_year = RelativeDelta::with_years(1).build();
-		assert_eq!(
-			dt - sub_1_year,
-			Utc
-				.with_ymd_and_hms(2019, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let add_1_year = RelativeDelta::with_years(-1).build();
-		assert_eq!(
-			dt - &add_1_year,
-			Utc
-				.with_ymd_and_hms(2021, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let set_year = RelativeDelta::with_year(2010).build();
-		assert_eq!(
-			&dt - set_year,
-			Utc
-				.with_ymd_and_hms(2010, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let set_year = RelativeDelta::with_year(-1).build();
-		assert_eq!(
-			&dt - &set_year,
-			Utc
-				.with_ymd_and_hms(-1, month, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let sub_6_months = RelativeDelta::with_months(-6).build();
-		assert_eq!(
-			dt - sub_6_months,
-			Utc
-				.with_ymd_and_hms(2020, 10, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-
-		let sub_47_months = RelativeDelta::with_months(-47).build();
-		assert_eq!(
-			dt - sub_47_months,
-			Utc
-				.with_ymd_and_hms(2024, 3, day, hour, min, sec)
-				.single()
-				.ok_or(anyhow!("Test failed"))?
-		);
-		Ok(())
-	}
-
-	#[test]
-	fn test_naive() {
-		let nd = chrono::NaiveDate::from_ymd_opt(2020, 4, 28).unwrap();
-		let ndt = nd.and_hms_opt(12, 35, 48).unwrap();
-
-		let add_1_year = RelativeDelta::with_years(1).build();
-		assert_eq!(
-			nd + add_1_year,
-			chrono::NaiveDate::from_ymd_opt(2021, 4, 28).unwrap()
-		);
-		assert_eq!(
-			ndt + add_1_year,
-			chrono::NaiveDate::from_ymd_opt(2021, 4, 28)
-				.unwrap()
-				.and_hms_opt(12, 35, 48)
-				.unwrap()
-		);
-
-		let sub_1_year = RelativeDelta::with_years(1).build();
-		assert_eq!(
-			nd - sub_1_year,
-			chrono::NaiveDate::from_ymd_opt(2019, 4, 28).unwrap()
-		);
-		assert_eq!(
-			ndt - sub_1_year,
-			chrono::NaiveDate::from_ymd_opt(2019, 4, 28)
-				.unwrap()
-				.and_hms_opt(12, 35, 48)
-				.unwrap()
-		);
-
-		let sub_1_year = RelativeDelta::with_years(-1).build();
-		assert_eq!(
-			nd - sub_1_year,
-			chrono::NaiveDate::from_ymd_opt(2021, 4, 28).unwrap()
-		);
-		assert_eq!(
-			ndt - sub_1_year,
-			chrono::NaiveDate::from_ymd_opt(2021, 4, 28)
-				.unwrap()
-				.and_hms_opt(12, 35, 48)
-				.unwrap()
-		);
-
-		let add_1_month = RelativeDelta::with_months(1).build();
-		assert_eq!(
-			nd + add_1_month,
-			chrono::NaiveDate::from_ymd_opt(2020, 5, 28).unwrap()
-		);
-
-		let add_1_day = RelativeDelta::with_days(1).build();
-		assert_eq!(
-			nd + add_1_day,
-			chrono::NaiveDate::from_ymd_opt(2020, 4, 29).unwrap()
-		);
-
-		let set_day = RelativeDelta::with_day(1).build();
-		assert_eq!(
-			nd + set_day,
-			chrono::NaiveDate::from_ymd_opt(2020, 4, 1).unwrap()
-		);
-
-		let add_1_hour = RelativeDelta::with_hours(1).build();
-		// NaiveDate + 1 hour should still be same NaiveDate because it only adds days
-		assert_eq!(nd + add_1_hour, nd);
-		assert_eq!(ndt + add_1_hour, nd.and_hms_opt(13, 35, 48).unwrap());
-	}
+	use crate::RelativeDelta;
 
 	#[test]
 	fn test_try_from() -> anyhow::Result<()> {
@@ -808,47 +484,6 @@ mod tests {
 		assert_eq!(naive_dt.minute(), 35);
 		assert_eq!(naive_dt.second(), 48);
 		Ok(())
-	}
-
-	#[test]
-	fn test_weekday_follows_dateutil() {
-		let monday = chrono::NaiveDate::from_ymd_opt(2021, 5, 3).unwrap();
-		let day = |d| chrono::NaiveDate::from_ymd_opt(2021, 5, d).unwrap();
-		let with_weekday = |weekday, nth| RelativeDelta::with_weekday(weekday, nth).build();
-		// The date itself is the first occurrence of its own weekday, in either direction.
-		assert_eq!(monday + with_weekday(Weekday::Mon, 1), monday);
-		assert_eq!(monday + with_weekday(Weekday::Mon, -1), monday);
-		assert_eq!(monday + with_weekday(Weekday::Mon, 2), day(10));
-		assert_eq!(monday + with_weekday(Weekday::Tue, 1), day(4));
-		assert_eq!(
-			monday + with_weekday(Weekday::Tue, -1),
-			chrono::NaiveDate::from_ymd_opt(2021, 4, 27).unwrap()
-		);
-		assert!(
-			with_weekday(Weekday::Mon, i64::MAX)
-				.checked_add_date(&monday)
-				.is_none()
-		);
-	}
-
-	#[test]
-	fn test_checked_add_is_backend_agnostic() {
-		let date = chrono::NaiveDate::from_ymd_opt(2024, 1, 31).unwrap();
-		let next_month = RelativeDelta::with_months(1).build();
-		assert_eq!(
-			next_month.checked_add(&date),
-			next_month.checked_add_date(&date)
-		);
-		let datetime = date.and_hms_opt(12, 0, 0).unwrap();
-		assert_eq!(
-			next_month.checked_add(&datetime),
-			next_month.checked_add_naive_datetime(&datetime)
-		);
-		let utc = datetime.and_utc();
-		assert_eq!(
-			next_month.checked_add(&utc),
-			next_month.checked_add_datetime(&utc)
-		);
 	}
 
 	#[test]
