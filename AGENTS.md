@@ -128,7 +128,7 @@ prek run --all-files --stage pre-push   # types, tests, docs, synth, licences, a
 ```
 
 The block between prek.toml's markers comes from LunaPinc/standards, like the block below in this
-file; a check only this repo needs goes below that block.
+file; a check only this repo needs goes below that block, under an id no stack uses.
 
 ## Rust pack
 
