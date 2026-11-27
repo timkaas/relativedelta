@@ -1,71 +1,70 @@
 name: Publish
 
+# Publishes the tagged version to crates.io, then creates its GitHub release. The tagged commit must
+# be on main, where the required `checks` already passed, so this workflow does not test again.
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-**'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  audit:
-    name: Audit
+  verify:
+    name: Verify the tag
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Require the tagged commit on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main"
+            exit 1
+          fi
       - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: cargo-deny
-      # The same licence, advisory and source rules, and ignores, as the checks on main
+      # An advisory published after the commit merged still blocks the release.
       - run: cargo deny --config .lunapinc/deny.toml check
 
-  build_and_test_linux:
-    name: Build and Test (Linux)
+  crates_io_publish:
+    name: Publish (crates.io)
+    needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install stable --profile minimal
-
-      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
-        with:
-          tool: nextest
-      - name: 'Build and test'
-        run: cargo nextest run --workspace --all-targets --all-features
-
-  build_and_test_windows:
-    name: Build and Test (Windows)
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - name: Prepare symlink configuration
-        run: git config --global core.symlinks true
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: rustup toolchain install stable --profile minimal
-
-      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
-        with:
-          tool: nextest
-      - name: 'Build and test'
-        run: cargo nextest run --workspace --all-targets --all-features
+      - name: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Publishing version $VERSION"
+          sed -i "s/0.0.0-replace-me/$VERSION/g" Cargo.toml
+          cargo publish --all-features --allow-dirty
 
   release:
     name: Create Release
-    needs:
-      - audit
-      - build_and_test_linux
-      - build_and_test_windows
+    needs: crates_io_publish
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Create Release
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
@@ -75,29 +74,3 @@ jobs:
           target_commitish: main
           generate_release_notes: true
           make_latest: ${{ !contains(github.ref_name, '-') }}
-
-  crates_io_publish:
-    name: Publish (crates.io)
-    needs:
-      - audit
-      - build_and_test_linux
-      - build_and_test_windows
-
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: rustup toolchain install stable --profile minimal
-
-      - name: cargo login
-        run: |-
-          echo "${{ secrets.CRATES_IO_TOKEN }}" | cargo login
-
-      - name: cargo release publish
-        run: |-
-          TAG=${{ github.ref_name }}
-          echo "Publishing version $TAG"
-          VERSION=${TAG#v}
-          echo "Version is $VERSION"
-          sed -i "s/0.0.0-replace-me/$VERSION/g" Cargo.toml
-          cargo publish --all-features --allow-dirty
