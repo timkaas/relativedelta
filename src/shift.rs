@@ -56,7 +56,7 @@ use jiff::civil::date;
 use relativedelta::RelativeDelta;
 
 let last_of_march = RelativeDelta::with_month(3)
-	.and_day(Some(1))
+	.and_day(1)
 	.and_months(1)
 	.and_days(-1)
 	.build();

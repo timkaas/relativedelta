@@ -96,7 +96,7 @@ let today = ymd(2024, 3, 20);
 let charge_day = 15;
 
 let charges: Vec<_> = (1..=3)
-    .map(|month| today + RelativeDelta::with_months(month).and_day(Some(charge_day)).build())
+    .map(|month| today + RelativeDelta::with_months(month).and_day(charge_day).build())
     .collect();
 assert_eq!(charges, [ymd(2024, 4, 15), ymd(2024, 5, 15), ymd(2024, 6, 15)]);
 ```
@@ -114,7 +114,7 @@ use relativedelta::RelativeDelta;
 
 fn quarter_bounds(date: NaiveDate) -> (NaiveDate, NaiveDate) {
     let first_month = u8::try_from((date.month0() / 3) * 3 + 1).unwrap();
-    let start = date + RelativeDelta::with_month(first_month).and_day(Some(1)).build();
+    let start = date + RelativeDelta::with_month(first_month).and_day(1).build();
     let end = start + RelativeDelta::with_months(3).and_days(-1).build();
     (start, end)
 }
@@ -137,7 +137,7 @@ let loan_start = ymd(2024, 3, 20);
 
 // 12 monthly payments, always on the 1st
 let payment_dates: Vec<_> = (1..=12)
-    .map(|month| loan_start + RelativeDelta::with_months(month).and_day(Some(1)).build())
+    .map(|month| loan_start + RelativeDelta::with_months(month).and_day(1).build())
     .collect();
 assert_eq!(payment_dates.first(), Some(&ymd(2024, 4, 1)));
 assert_eq!(payment_dates.last(), Some(&ymd(2025, 3, 1)));
@@ -176,15 +176,15 @@ let today = ymd(2024, 3, 20);
 // Next month's 2nd Tuesday
 let second_tuesday_next_month = today
     + RelativeDelta::with_months(1)
-        .and_day(Some(1))
-        .and_weekday(Some((Weekday::Tue, 2)))
+        .and_day(1)
+        .and_weekday((Weekday::Tue, 2))
         .build();
 assert_eq!(second_tuesday_next_month, ymd(2024, 4, 9));
 
 // This month's 3rd Friday
 let third_friday_this_month = today
     + RelativeDelta::with_day(1)
-        .and_weekday(Some((Weekday::Fri, 3)))
+        .and_weekday((Weekday::Fri, 3))
         .build();
 assert_eq!(third_friday_this_month, ymd(2024, 3, 15));
 
@@ -193,7 +193,7 @@ let last_friday = today
     + RelativeDelta::with_day(1)
         .and_months(1)
         .and_days(-1)
-        .and_weekday(Some((Weekday::Fri, -1)))
+        .and_weekday((Weekday::Fri, -1))
         .build();
 assert_eq!(last_friday, ymd(2024, 3, 29));
 ```
@@ -213,7 +213,7 @@ let meetings: Vec<_> = (0..5)
     .map(|occurrence| {
         start_date
             + RelativeDelta::with_days(14 * occurrence)
-                .and_weekday(Some((Weekday::Wed, 1)))
+                .and_weekday((Weekday::Wed, 1))
                 .build()
     })
     .collect();
@@ -237,7 +237,7 @@ use relativedelta::RelativeDelta;
 
 fn fiscal_year_start(date: NaiveDate) -> NaiveDate {
     let years_back = if date.month() >= 7 { 0 } else { -1 };
-    date + RelativeDelta::with_years(years_back).and_month(Some(7)).and_day(Some(1)).build()
+    date + RelativeDelta::with_years(years_back).and_month(7).and_day(1).build()
 }
 
 let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
@@ -305,7 +305,7 @@ use relativedelta::RelativeDelta;
 let at = |h, m| NaiveDate::from_ymd_opt(2024, 3, 20).unwrap().and_hms_opt(h, m, 0).unwrap();
 let now = at(7, 42);
 
-let shift_start = now + RelativeDelta::with_hour(9).and_minute(Some(0)).build();
+let shift_start = now + RelativeDelta::with_hour(9).and_minute(0).build();
 assert_eq!(shift_start, at(9, 0));
 
 let lunch = shift_start + RelativeDelta::with_hours(3).build();

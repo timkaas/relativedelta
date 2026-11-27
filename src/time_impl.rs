@@ -4,10 +4,9 @@
 
 use num_integer::Integer;
 
-use crate::from_error::FromError;
 use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
 use crate::shift::sealed::Shift;
-use crate::{RelativeDelta, Weekday};
+use crate::{ConversionError, RelativeDelta, Weekday};
 
 /// Returns `source` with the delta's absolute date fields applied and its years and months added,
 /// the day clamped to the length of the resulting month.
@@ -47,15 +46,17 @@ fn weekday_jump(delta: &RelativeDelta, current: time::Weekday) -> Option<time::D
 	else {
 		return Some(time::Duration::ZERO);
 	};
-	let current = Weekday::from(current.number_days_from_monday());
-	days(weekday.jump_days_from(current, nth))
+	days(weekday.jump_days_from(Weekday::from(current), nth))
 }
 
 /// Adds `delta` to `rhs`, using only the date fields and the days of the delta, like
 /// `chrono::NaiveDate`.
 fn add_date(delta: &RelativeDelta, rhs: time::Date) -> Option<time::Date> {
-	let date = anchor_date(delta, rhs)?.checked_add(days(delta.days())?)?;
-	date.checked_add(weekday_jump(delta, date.weekday())?)
+	let anchored = anchor_date(delta, rhs)?;
+	let days = days(delta.days())?;
+	let date = anchored.checked_add(days)?;
+	let jump = weekday_jump(delta, date.weekday())?;
+	date.checked_add(jump)
 }
 
 /// Defines `$fname`, which adds a delta to a `$datetime`; `$ctor` builds the result from the new
@@ -71,16 +72,17 @@ macro_rules! impl_add {
 				lhs.nanosecond().unwrap_or(rhs.nanosecond()),
 			)
 			.ok()?;
-			let seconds = lhs
-				.hours()
-				.checked_mul(3_600)?
-				.checked_add(lhs.minutes().checked_mul(60)?)?
-				.checked_add(lhs.seconds())?;
-			let ret = $ctor(date, time, rhs)
-				.checked_add(days(lhs.days())?)?
-				.checked_add(time::Duration::seconds(seconds))?
-				.checked_add(time::Duration::nanoseconds(lhs.nanoseconds()))?;
-			ret.checked_add(weekday_jump(lhs, ret.weekday())?)
+			let hour_seconds = lhs.hours().checked_mul(3_600)?;
+			let minute_seconds = lhs.minutes().checked_mul(60)?;
+			let seconds = hour_seconds.checked_add(minute_seconds)?;
+			let seconds = seconds.checked_add(lhs.seconds())?;
+			let days = days(lhs.days())?;
+			let anchored = $ctor(date, time, rhs);
+			let ret = anchored.checked_add(days)?;
+			let ret = ret.checked_add(time::Duration::seconds(seconds))?;
+			let ret = ret.checked_add(time::Duration::nanoseconds(lhs.nanoseconds()))?;
+			let jump = weekday_jump(lhs, ret.weekday())?;
+			ret.checked_add(jump)
 		}
 	};
 }
@@ -105,28 +107,40 @@ impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::OffsetDateTime| -> ti
 impl_op_ex_commutative!(+|lhs: &RelativeDelta, rhs: &time::UtcDateTime| -> time::UtcDateTime { add_utc(lhs, rhs).expect("could not add RelativeDelta to datetime") });
 
 impl RelativeDelta {
-	/// Add this calendar delta to a `time::PrimitiveDateTime` without panicking.
+	/// Returns `rhs` moved by this delta, or `None` if the result is not representable.
 	#[must_use]
+	#[deprecated(
+		since = "1.0.0",
+		note = "use `RelativeDelta::checked_add`, which takes every supported type"
+	)]
 	pub fn checked_add_primitive_datetime(
 		&self,
 		rhs: &time::PrimitiveDateTime,
 	) -> Option<time::PrimitiveDateTime> {
-		add_primitive(self, rhs)
+		self.checked_add(rhs)
 	}
 
-	/// Add this calendar delta to a `time::OffsetDateTime` without panicking.
+	/// Returns `rhs` moved by this delta, or `None` if the result is not representable.
 	#[must_use]
+	#[deprecated(
+		since = "1.0.0",
+		note = "use `RelativeDelta::checked_add`, which takes every supported type"
+	)]
 	pub fn checked_add_offset_datetime(
 		&self,
 		rhs: &time::OffsetDateTime,
 	) -> Option<time::OffsetDateTime> {
-		add_offset(self, rhs)
+		self.checked_add(rhs)
 	}
 
-	/// Add this calendar delta to a `time::UtcDateTime` without panicking.
+	/// Returns `rhs` moved by this delta, or `None` if the result is not representable.
 	#[must_use]
+	#[deprecated(
+		since = "1.0.0",
+		note = "use `RelativeDelta::checked_add`, which takes every supported type"
+	)]
 	pub fn checked_add_utc_datetime(&self, rhs: &time::UtcDateTime) -> Option<time::UtcDateTime> {
-		add_utc(self, rhs)
+		self.checked_add(rhs)
 	}
 }
 
@@ -138,6 +152,21 @@ impl_op_ex!(
 );
 impl_op_ex!(-|lhs: &time::Date, rhs: &RelativeDelta| -> time::Date { lhs + (-rhs) });
 impl_op_ex!(-|lhs: &time::UtcDateTime, rhs: &RelativeDelta| -> time::UtcDateTime { lhs + (-rhs) });
+
+/// Converts time's weekday to the same day.
+impl From<time::Weekday> for Weekday {
+	fn from(weekday: time::Weekday) -> Self {
+		match weekday {
+			time::Weekday::Monday => Self::Mon,
+			time::Weekday::Tuesday => Self::Tue,
+			time::Weekday::Wednesday => Self::Wed,
+			time::Weekday::Thursday => Self::Thu,
+			time::Weekday::Friday => Self::Fri,
+			time::Weekday::Saturday => Self::Sat,
+			time::Weekday::Sunday => Self::Sun,
+		}
+	}
+}
 
 impl Shift for time::Date {
 	/// Uses only the date fields and the days of the delta, like `chrono::NaiveDate`.
@@ -165,18 +194,18 @@ impl Shift for time::UtcDateTime {
 }
 
 impl TryFrom<RelativeDelta> for time::PrimitiveDateTime {
-	type Error = FromError;
+	type Error = ConversionError;
 
 	fn try_from(rddt: RelativeDelta) -> Result<Self, Self::Error> {
-		let year = rddt.year().ok_or(FromError::MissingYear)?;
-		let year = year.try_into().map_err(|_| FromError::MissingYear)?;
-		let month = rddt.month().ok_or(FromError::MissingMonth)?;
-		let day = rddt.day().ok_or(FromError::MissingDay)?;
+		let year = rddt.year().ok_or(ConversionError::MissingYear)?;
+		let year = year.try_into().map_err(|_| ConversionError::InvalidDate)?;
+		let month = rddt.month().ok_or(ConversionError::MissingMonth)?;
+		let day = rddt.day().ok_or(ConversionError::MissingDay)?;
 
-		let month = time::Month::try_from(month).map_err(|_| FromError::InvalidDateComponents)?;
+		let month = time::Month::try_from(month).map_err(|_| ConversionError::InvalidDate)?;
 
-		let date = time::Date::from_calendar_date(year, month, day)
-			.map_err(|_| FromError::InvalidDateComponents)?;
+		let date =
+			time::Date::from_calendar_date(year, month, day).map_err(|_| ConversionError::InvalidDate)?;
 
 		let hour = rddt.hour().unwrap_or(0);
 		let minute = rddt.minute().unwrap_or(0);
@@ -185,7 +214,7 @@ impl TryFrom<RelativeDelta> for time::PrimitiveDateTime {
 
 		date
 			.with_hms_nano(hour, minute, second, nanosecond)
-			.map_err(|_| FromError::InvalidTimeComponents)
+			.map_err(|_| ConversionError::InvalidTime)
 	}
 }
 
@@ -194,16 +223,16 @@ mod tests {
 	use similar_asserts::assert_eq;
 	use time::PrimitiveDateTime;
 
-	use crate::RelativeDelta;
+	use crate::{ConversionError, RelativeDelta};
 
 	#[test]
 	fn test_try_from() {
 		let rddt = RelativeDelta::with_year(2020)
-			.and_month(Some(4))
-			.and_day(Some(28))
-			.and_hour(Some(12))
-			.and_minute(Some(35))
-			.and_second(Some(48))
+			.and_month(4)
+			.and_day(28)
+			.and_hour(12)
+			.and_minute(35)
+			.and_second(48)
 			.build();
 
 		let naive_dt: PrimitiveDateTime = rddt.try_into().expect("Failed to convert");
@@ -214,5 +243,35 @@ mod tests {
 		assert_eq!(naive_dt.hour(), 12);
 		assert_eq!(naive_dt.minute(), 35);
 		assert_eq!(naive_dt.second(), 48);
+	}
+
+	#[test]
+	fn test_weekday_from_time() {
+		let mut day = time::Weekday::Monday;
+		for _ in 0..7 {
+			let converted = crate::Weekday::from(day);
+			assert_eq!(
+				converted.num_days_from_monday(),
+				day.number_days_from_monday()
+			);
+			day = day.next();
+		}
+	}
+
+	#[test]
+	fn test_try_from_reports_the_failing_field() {
+		let missing_day = RelativeDelta::with_year(2020).and_month(1).build();
+		assert_eq!(
+			PrimitiveDateTime::try_from(missing_day),
+			Err(ConversionError::MissingDay)
+		);
+		let out_of_range = RelativeDelta::with_year(1_000_000)
+			.and_month(1)
+			.and_day(1)
+			.build();
+		assert_eq!(
+			PrimitiveDateTime::try_from(out_of_range),
+			Err(ConversionError::InvalidDate)
+		);
 	}
 }

@@ -7,7 +7,6 @@ use core::ops;
 use num_integer::Integer;
 use num_traits::float::FloatCore;
 use num_traits::{ToPrimitive, Zero};
-use paste::paste;
 
 use crate::weekday::Weekday;
 
@@ -65,77 +64,81 @@ pub struct Builder {
 	nanosecond: Option<NanosecondType>,
 }
 
+/// Defines the builder setter `$method` for the field `$key`.
+///
+/// The `opt` form is for an absolute field: it accepts the value itself or an `Option`, so
+/// `and_day(1)` sets the day and `and_day(None)` clears it. The other form sets a relative field.
 macro_rules! impl_and {
-	($key:ident, $ty:ty, $doc_val:expr) => {
-		paste! {
-			#[doc = concat!("Set or update ", stringify!($key), " on the builder. Previously set values are overwritten for ", stringify!($key), ".")]
-			#[doc = "# Arguments"]
-			#[doc = concat!("* `", stringify!($key), "` - The ", stringify!($key), " to set.")]
-			#[doc = "# Returns"]
-			#[doc = "Self by value to further chain value-setting calls using the `and_*()` methods on the builder."]
-			#[doc = "# Examples"]
-			#[doc = "```"]
-			#[doc = concat!("# use relativedelta::{RelativeDelta, Weekday};")]
-			#[doc = concat!("let rd = RelativeDelta::new_builder().and_", stringify!($key), "(", stringify!($doc_val) ,").build();")]
-			#[doc = concat!("assert_eq!(rd.", stringify!($key), "(), ", stringify!($doc_val), ");")]
-			#[doc = "```"]
-			#[inline]
-			#[must_use]
-			pub const fn [<and_ $key>](mut self, $key: $ty) -> Self {
-				self.$key = $key;
-				self
-			}
+	($method:ident, $key:ident, opt $ty:ty, $doc_val:expr) => {
+		#[doc = concat!("Sets the absolute ", stringify!($key), ", or clears it with `None`, replacing any earlier value.")]
+		#[doc = ""]
+		#[doc = "# Examples"]
+		#[doc = ""]
+		#[doc = "```"]
+		#[doc = "# use relativedelta::{RelativeDelta, Weekday};"]
+		#[doc = concat!("let delta = RelativeDelta::new_builder().", stringify!($method), "(", stringify!($doc_val), ").build();")]
+		#[doc = concat!("assert_eq!(delta.", stringify!($key), "(), Some(", stringify!($doc_val), "));")]
+		#[doc = concat!("let cleared = delta.builder().", stringify!($method), "(None).build();")]
+		#[doc = concat!("assert_eq!(cleared.", stringify!($key), "(), None);")]
+		#[doc = "```"]
+		#[inline]
+		#[must_use]
+		pub fn $method(mut self, $key: impl Into<Option<$ty>>) -> Self {
+			self.$key = $key.into();
+			self
+		}
+	};
+	($method:ident, $key:ident, $ty:ty, $doc_val:expr) => {
+		#[doc = concat!("Sets the relative ", stringify!($key), ", replacing any earlier value.")]
+		#[doc = ""]
+		#[doc = "# Examples"]
+		#[doc = ""]
+		#[doc = "```"]
+		#[doc = "# use relativedelta::RelativeDelta;"]
+		#[doc = concat!("let delta = RelativeDelta::new_builder().", stringify!($method), "(", stringify!($doc_val), ").build();")]
+		#[doc = concat!("assert_eq!(delta.", stringify!($key), "(), ", stringify!($doc_val), ");")]
+		#[doc = "```"]
+		#[inline]
+		#[must_use]
+		pub const fn $method(mut self, $key: $ty) -> Self {
+			self.$key = $key;
+			self
 		}
 	};
 }
 
 impl Builder {
-	// mut Relatives
-	impl_and!(year, Option<YearType>, Some(2020));
+	impl_and!(and_year, year, opt YearType, 2020);
 
-	impl_and!(years, YearsType, 39);
+	impl_and!(and_years, years, YearsType, 39);
 
-	impl_and!(month, Option<MonthType>, Some(3));
+	impl_and!(and_month, month, opt MonthType, 3);
 
-	impl_and!(months, MonthsType, 6);
+	impl_and!(and_months, months, MonthsType, 6);
 
-	impl_and!(months_f, f64, 0.5);
+	impl_and!(and_months_f, months_f, f64, 0.5);
 
-	impl_and!(day, Option<DayType>, Some(6));
+	impl_and!(and_day, day, opt DayType, 6);
 
-	impl_and!(days, DaysType, 6);
+	impl_and!(and_days, days, DaysType, 6);
 
-	impl_and!(weekday, Option<(Weekday, i64)>, Some((Weekday::Fri, 2)));
+	impl_and!(and_weekday, weekday, opt(Weekday, i64), (Weekday::Fri, 2));
 
-	impl_and!(hour, Option<HourType>, Some(12));
+	impl_and!(and_hour, hour, opt HourType, 12);
 
-	impl_and!(hours, HoursType, 12);
+	impl_and!(and_hours, hours, HoursType, 12);
 
-	impl_and!(minute, Option<MinuteType>, Some(30));
+	impl_and!(and_minute, minute, opt MinuteType, 30);
 
-	impl_and!(minutes, MinutesType, 30);
+	impl_and!(and_minutes, minutes, MinutesType, 30);
 
-	impl_and!(second, Option<SecondType>, Some(45));
+	impl_and!(and_second, second, opt SecondType, 45);
 
-	impl_and!(seconds, SecondsType, 45);
+	impl_and!(and_seconds, seconds, SecondsType, 45);
 
-	impl_and!(nanosecond, Option<NanosecondType>, Some(123456789));
+	impl_and!(and_nanosecond, nanosecond, opt NanosecondType, 123456789);
 
-	impl_and!(nanoseconds, NanosecondsType, 123456789);
-
-	/// Construct new `RelativeDelta`
-	///
-	/// Returns a fixed `RelativeDelta` where time parameters are within meaningful boundaries.
-	#[inline]
-	#[deprecated(
-		since = "0.3.0",
-		note = "Use build() instead. This method will be removed in a future version."
-	)]
-	#[allow(clippy::new_ret_no_self)]
-	#[must_use]
-	pub fn new(&self) -> RelativeDelta {
-		self.build()
-	}
+	impl_and!(and_nanoseconds, nanoseconds, NanosecondsType, 123456789);
 
 	/// Build a `RelativeDelta` from set parameters.
 	/// This method normalizes the parameters and fixes them to be within meaningful boundaries.
@@ -174,98 +177,6 @@ impl Builder {
 		};
 		Self::fix(&mut ddt);
 		ddt
-	}
-
-	/// Convenience method to set or update year, relative years, month, relative months, day and relative days while building a `RelativeDelta`.
-	///
-	/// # Arguments
-	/// * `year` - Optional year to set. If None, the year is not set.
-	/// * `years` - Relative years to add or subtract.
-	/// * `month` - Optional month to set. If None, the month is not set.
-	/// * `months` - Relative months to add or subtract.
-	/// * `day` - Optional day to set. If None, the day is not set.
-	/// * `days` - Relative days to add or subtract.
-	///
-	/// # Returns
-	/// Self by value to further chain value-setting calls using the `and_*()` methods on the builder.
-	///
-	/// # Examples
-	/// ```
-	/// # use relativedelta::RelativeDelta;
-	/// let rd = RelativeDelta::new_builder().and_yysmmsdds(Some(2020), 1, Some(1), 3, None, 12).build();
-	/// assert_eq!(rd.years(), 1);
-	/// assert_eq!(rd.months(), 3);
-	/// assert_eq!(rd.days(), 12);
-	/// let rd = RelativeDelta::new_builder().and_yysmmsdds(None, -1, None, 2, Some(15), 0).build();
-	/// assert_eq!(rd.years(), -1);
-	/// assert_eq!(rd.months(), 2);
-	/// assert_eq!(rd.day(), Some(15));
-	/// assert_eq!(rd.days(), 0);
-	/// ```
-	#[inline]
-	#[must_use]
-	pub fn and_yysmmsdds(
-		mut self,
-		year: Option<YearType>,
-		years: YearsType,
-		month: Option<MonthType>,
-		months: MonthsType,
-		day: Option<DayType>,
-		days: DaysType,
-	) -> Self {
-		self.year = year;
-		self.years = years;
-		self.month = month;
-		self.months = months;
-		self.day = day;
-		self.days = days;
-		self
-	}
-
-	/// Convenience method to set or override hour, relative hours, minute, relative minutes, second and relative seconds while building a `RelativeDelta`.
-	///
-	/// # Arguments
-	/// * `hour` - Optional hour to set. If None, the hour is not set.
-	/// * `hours` - Relative hours to add or subtract.
-	/// * `minute` - Optional minute to set. If None, the minute is not set.
-	/// * `minutes` - Relative minutes to add or subtract.
-	/// * `second` - Optional second to set. If None, the second is not set.
-	/// * `seconds` - Relative seconds to add or subtract.
-	///
-	/// # Returns
-	/// Self by value to further chain value-setting calls using the `and_*()` methods on the builder.
-	///
-	/// # Examples
-	/// ```
-	/// # use relativedelta::RelativeDelta;
-	/// let rd = RelativeDelta::new_builder().and_hhsmmssss(Some(12), 1, Some(30), 15, Some(45), 20).build();
-	/// assert_eq!(rd.hours(), 1);
-	/// assert_eq!(rd.minutes(), 15);
-	/// assert_eq!(rd.seconds(), 20);
-	/// let rd = RelativeDelta::new_builder().and_hhsmmssss(None, -1, None, 30, Some(45), 0).build();
-	/// assert_eq!(rd.hours(), -1);
-	/// assert_eq!(rd.minutes(), 30);
-	/// assert_eq!(rd.second(), Some(45));
-	/// assert_eq!(rd.seconds(), 0);
-	/// ```
-	#[inline]
-	#[must_use]
-	pub fn and_hhsmmssss(
-		mut self,
-		hour: Option<HourType>,
-		hours: HoursType,
-		minute: Option<MinuteType>,
-		minutes: MinutesType,
-		second: Option<SecondType>,
-		seconds: SecondsType,
-	) -> Self {
-		self.hour = hour;
-		self.hours = hours;
-		self.minute = minute;
-		self.minutes = minutes;
-		self.second = second;
-		self.seconds = seconds;
-		self
 	}
 
 	#[inline]
@@ -421,23 +332,23 @@ impl Builder {
 /// let months6 = RelativeDelta::with_months(12).and_months(6).build();
 /// assert_eq!(months6, RelativeDelta::with_months(6).build());
 ///
-/// // For shortcut construction of RelativeDelta, use the `yysmmsdds` and/or `hhsmmssss` methods.
-/// let rddt2 = RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 3, None, 12).build();
-/// let rddt = RelativeDelta::with_year(2020).and_years(1).and_month(Some(1)).and_months(3).and_days(12).build();
-/// assert_eq!(rddt2, rddt);
+/// // Absolute fields take the value itself; `None` clears one again.
+/// let rddt = RelativeDelta::with_year(2020).and_years(1).and_month(1).and_months(3).and_days(12).build();
+/// assert_eq!(rddt.month(), Some(1));
+/// assert_eq!(rddt.builder().and_month(None).build().month(), None);
 /// ```
 ///
 /// Implemented operators
 /// ```
 /// # use relativedelta::{RelativeDelta, Weekday};
 /// // Two or more RelativeDeltas can be added and subtracted. However, note that constants are lost in the process.
-/// let lhs = RelativeDelta::yysmmsdds(Some(2020), -4, Some(1), 3, None, 0).build();
-/// let rhs = RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 42, None, 0).build();
+/// let lhs = RelativeDelta::with_year(2020).and_years(-4).and_month(1).and_months(3).build();
+/// let rhs = RelativeDelta::with_year(2020).and_years(1).and_month(1).and_months(42).build();
 /// assert_eq!(lhs + rhs, RelativeDelta::with_years(-3).and_months(45).build());
 /// assert_eq!(lhs - rhs, RelativeDelta::with_years(-5).and_months(-39).build());
 /// assert_eq!(-lhs + rhs, RelativeDelta::with_years(5).and_months(39).build());
 /// // The RelativeDelta can be multiplied with a f64.
-/// assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(Some(2020)).and_months(3).and_month(Some(1)).build());
+/// assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(2020).and_months(3).and_month(1).build());
 /// assert_eq!(rhs * 0.5, 0.5 * rhs);
 /// ```
 /// This crates party piece is the ability to calculate dates based on already existing `chrono::DateTime`
@@ -449,18 +360,18 @@ impl Builder {
 use chrono::{Utc, TimeZone, Datelike, DateTime};
 
 // If one would like to get the last day of the month that one is currently in, it could be done with:
-println!("{}", Utc::now() + RelativeDelta::with_months(1).and_day(Some(1)).and_days(-1).build());
+println!("{}", Utc::now() + RelativeDelta::with_months(1).and_day(1).and_days(-1).build());
 // Above first sets the day of the month to the 1st, then adds a month and subtracts a day.
 // If one were to get all quarters for the current year, one could do so by:
 let dt = Utc.with_ymd_and_hms(2020, 1, 1,0,0,0).unwrap();
-let quarters : Vec<DateTime<Utc>> = (3..=12).step_by(3).map(|month| dt + RelativeDelta::with_month(month).and_day(Some(1)).build()).collect();
+let quarters : Vec<DateTime<Utc>> = (3..=12).step_by(3).map(|month| dt + RelativeDelta::with_month(month).and_day(1).build()).collect();
 assert_eq!(quarters.len(), 4);
 assert_eq!(quarters[0], Utc.with_ymd_and_hms(2020, 3, 1,0,0,0).unwrap());
 assert_eq!(quarters[1], Utc.with_ymd_and_hms(2020, 6, 1,0,0,0).unwrap());
 assert_eq!(quarters[2], Utc.with_ymd_and_hms(2020, 9, 1,0,0,0).unwrap());
 assert_eq!(quarters[3], Utc.with_ymd_and_hms(2020, 12, 1,0,0,0).unwrap());
 // One could also request the first monday after one year by
-let first_monday_after_one_year = RelativeDelta::with_years(1).and_weekday(Some((Weekday::Mon, 1))).build();
+let first_monday_after_one_year = RelativeDelta::with_years(1).and_weekday((Weekday::Mon, 1)).build();
 let d = dt + first_monday_after_one_year;
 assert_eq!(d, Utc.with_ymd_and_hms(2021, 1, 4,0,0,0).unwrap());
 ```
@@ -508,32 +419,45 @@ pub struct RelativeDelta {
 	weekday: Option<(Weekday, i64)>,
 }
 
+/// Defines `RelativeDelta::$method`, which starts a builder with the field `$key` set.
+///
+/// The `opt` form is for an absolute field and accepts the value itself or an `Option`.
 macro_rules! impl_with {
-	($key:ident, opt $ty:ty, $doc_val:literal) => {
-		impl_with!($key, Some($key), $ty, $doc_val, Some($doc_val));
+	($method:ident, $key:ident, opt $ty:ty, $doc_val:expr) => {
+		#[doc = concat!("Starts a builder with the absolute ", stringify!($key), " set.")]
+		#[doc = ""]
+		#[doc = "# Examples"]
+		#[doc = ""]
+		#[doc = "```"]
+		#[doc = "# use relativedelta::RelativeDelta;"]
+		#[doc = concat!("let delta = RelativeDelta::", stringify!($method), "(", stringify!($doc_val), ").build();")]
+		#[doc = concat!("assert_eq!(delta.", stringify!($key), "(), Some(", stringify!($doc_val), "));")]
+		#[doc = "```"]
+		#[inline]
+		#[must_use]
+		pub fn $method($key: impl Into<Option<$ty>>) -> Builder {
+			Builder {
+				$key: $key.into(),
+				..Default::default()
+			}
+		}
 	};
-	($key:ident, $ty:ty, $doc_val:literal) => {
-		impl_with!($key, $key, $ty, $doc_val, $doc_val);
-	};
-	($key:ident, $val:expr, $ty:ty, $doc_val:literal, $doc_val_eq:expr) => {
-		paste! {
-			#[doc = "Create a new `RelativeDelta` builder."]
-			#[doc = concat!("Convenience method to create a `RelativeDelta` builder with the ", stringify!($key), " set.")]
-			#[doc = "# Arguments"]
-			#[doc = concat!("* `", stringify!($key), "` - The ", stringify!($key), " to set.")]
-			#[doc = "# Returns"]
-			#[doc = "The builder by value to further chain value-setting calls using the `and_*()` methods on the builder."]
-			#[doc = "# Examples"]
-			#[doc = "```"]
-			#[doc = concat!("# use relativedelta::RelativeDelta;")]
-			#[doc = concat!("let rd = RelativeDelta::with_", stringify!($key), "(", stringify!($doc_val), ").build();")]
-			#[doc = concat!("assert_eq!(rd.", stringify!($key), "(), ", stringify!($doc_val_eq), ");")]
-			#[doc = "```"]
-			#[allow(clippy::redundant_field_names)]
-			#[inline]
-			#[must_use]
-			pub fn [<with_ $key>]($key: $ty) -> Builder {
-				Builder { $key: $val, ..Default::default() }
+	($method:ident, $key:ident, $ty:ty, $doc_val:expr) => {
+		#[doc = concat!("Starts a builder with the relative ", stringify!($key), " set.")]
+		#[doc = ""]
+		#[doc = "# Examples"]
+		#[doc = ""]
+		#[doc = "```"]
+		#[doc = "# use relativedelta::RelativeDelta;"]
+		#[doc = concat!("let delta = RelativeDelta::", stringify!($method), "(", stringify!($doc_val), ").build();")]
+		#[doc = concat!("assert_eq!(delta.", stringify!($key), "(), ", stringify!($doc_val), ");")]
+		#[doc = "```"]
+		#[inline]
+		#[must_use]
+		pub fn $method($key: $ty) -> Builder {
+			Builder {
+				$key,
+				..Default::default()
 			}
 		}
 	};
@@ -551,33 +475,33 @@ macro_rules! impl_getter {
 }
 
 impl RelativeDelta {
-	impl_with!(year, opt YearType, 2020);
+	impl_with!(with_year, year, opt YearType, 2020);
 
-	impl_with!(years, YearsType, 5);
+	impl_with!(with_years, years, YearsType, 5);
 
-	impl_with!(month, opt MonthType, 3);
+	impl_with!(with_month, month, opt MonthType, 3);
 
-	impl_with!(months, MonthsType, 3);
+	impl_with!(with_months, months, MonthsType, 3);
 
-	impl_with!(day, opt DayType, 6);
+	impl_with!(with_day, day, opt DayType, 6);
 
-	impl_with!(days, DaysType, 15);
+	impl_with!(with_days, days, DaysType, 15);
 
-	impl_with!(hour, opt HourType, 12);
+	impl_with!(with_hour, hour, opt HourType, 12);
 
-	impl_with!(hours, HoursType, 12);
+	impl_with!(with_hours, hours, HoursType, 12);
 
-	impl_with!(minute, opt MinuteType, 30);
+	impl_with!(with_minute, minute, opt MinuteType, 30);
 
-	impl_with!(minutes, MinutesType, 30);
+	impl_with!(with_minutes, minutes, MinutesType, 30);
 
-	impl_with!(second, opt SecondType, 45);
+	impl_with!(with_second, second, opt SecondType, 45);
 
-	impl_with!(seconds, SecondsType, 45);
+	impl_with!(with_seconds, seconds, SecondsType, 45);
 
-	impl_with!(nanosecond, opt NanosecondType, 123456789);
+	impl_with!(with_nanosecond, nanosecond, opt NanosecondType, 123456789);
 
-	impl_with!(nanoseconds, NanosecondsType, 123456789);
+	impl_with!(with_nanoseconds, nanoseconds, NanosecondsType, 123456789);
 
 	impl_getter!(year, Option<YearType>);
 
@@ -666,136 +590,6 @@ impl RelativeDelta {
 			second: self.second,
 			nanosecond: self.nanosecond,
 			weekday: self.weekday,
-		}
-	}
-
-	/// Convenience construction of a `RelativeDelta` (Builder) with all parameters set to the given values.
-	/// This method normalizes the parameters and fixes them to be within meaningful boundaries.
-	/// The method is mainly used when multiplying a `RelativeDelta` with a f64, as it allows for fractional years, months, days, hours, minutes and seconds.
-	/// # Arguments
-	/// * `years` - The number of years to add or subtract.
-	/// * `months` - The number of months to add or subtract.
-	/// * `days` - The number of days to add or subtract.
-	/// * `hours` - The number of hours to add or subtract.
-	/// * `minutes` - The number of minutes to add or subtract.
-	/// * `seconds` - The number of seconds to add or subtract.
-	/// * `nanoseconds` - The number of nanoseconds to add or subtract.
-	/// # Returns
-	/// A `RelativeDelta` builder with all parameters set to the given values.
-	/// # Examples
-	/// ```
-	/// # use relativedelta::RelativeDelta;
-	/// let rd = RelativeDelta::ysmsdshsmsssns_f(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 123456789).build();
-	/// assert_eq!(rd.years(), 1);
-	/// assert_eq!(rd.months(), 2);
-	/// assert_eq!(rd.days(), 3);
-	/// assert_eq!(rd.hours(), 4);
-	/// assert_eq!(rd.minutes(), 5);
-	/// assert_eq!(rd.seconds(), 6);
-	/// assert_eq!(rd.nanoseconds(), 123456789);
-	/// ```
-	#[inline]
-	#[must_use]
-	pub fn ysmsdshsmsssns_f(
-		years: f64,
-		months: f64,
-		days: f64,
-		hours: f64,
-		minutes: f64,
-		seconds: f64,
-		nanoseconds: i64,
-	) -> Builder {
-		Builder::normalize(years, months, days, hours, minutes, seconds, nanoseconds)
-	}
-
-	/// Convenience construction of a `RelativeDelta` (Builder) with only date parameters
-	/// # Arguments
-	/// * `year` - Optional year to set. If None, the year is not set.
-	/// * `years` - Relative years to add or subtract.
-	/// * `month` - Optional month to set. If None, the month is not set.
-	/// * `months` - Relative months to add or subtract.
-	/// * `day` - Optional day to set. If None, the day is not set.
-	/// * `days` - Relative days to add or subtract.
-	/// # Returns
-	/// A `RelativeDelta` builder with all date parameters set to the given values.
-	/// # Examples
-	/// ```
-	/// # use relativedelta::{RelativeDelta};
-	/// let rd = RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 3, None, 12).build();
-	/// assert_eq!(rd.year(), Some(2020));
-	/// assert_eq!(rd.years(), 1);
-	/// assert_eq!(rd.month(), Some(1));
-	/// assert_eq!(rd.months(), 3);
-	/// assert_eq!(rd.day(), None);
-	/// assert_eq!(rd.days(), 12);
-	/// ```
-	#[inline]
-	#[must_use]
-	pub fn yysmmsdds(
-		year: Option<YearType>,
-		years: YearsType,
-		month: Option<MonthType>,
-		months: MonthsType,
-		day: Option<DayType>,
-		days: DaysType,
-	) -> Builder {
-		Builder {
-			years,
-			months,
-			days,
-			year,
-			month,
-			day,
-			..Default::default()
-		}
-	}
-
-	/// Convenience construction of a `RelativeDelta` (Builder) with only time parameters
-	/// # Arguments
-	/// * `hour` - Optional hour to set. If None, the hour is not set.
-	/// * `hours` - Relative hours to add or subtract.
-	/// * `minute` - Optional minute to set. If None, the minute is not set.
-	/// * `minutes` - Relative minutes to add or subtract.
-	/// * `second` - Optional second to set. If None, the second is not set.
-	/// * `seconds` - Relative seconds to add or subtract.
-	/// # Returns
-	/// A `RelativeDelta` builder with all time parameters set to the given values.
-	/// # Examples
-	/// ```
-	/// # use relativedelta::{RelativeDelta};
-	/// let rd = RelativeDelta::hhsmmssss(
-	///   Some(12),
-	///   1,
-	///    Some(30),
-	///   15,
-	///    Some(45),
-	///   20,
-	/// ).build();
-	/// assert_eq!(rd.hour(), Some(12));
-	/// assert_eq!(rd.hours(), 1);
-	/// assert_eq!(rd.minute(), Some(30));
-	/// assert_eq!(rd.minutes(), 15);
-	/// assert_eq!(rd.second(), Some(45));
-	/// assert_eq!(rd.seconds(), 20);
-	/// ```
-	#[inline]
-	#[must_use]
-	pub fn hhsmmssss(
-		hour: Option<HourType>,
-		hours: HoursType,
-		minute: Option<MinuteType>,
-		minutes: MinutesType,
-		second: Option<SecondType>,
-		seconds: SecondsType,
-	) -> Builder {
-		Builder {
-			hours,
-			minutes,
-			seconds,
-			hour,
-			minute,
-			second,
-			..Default::default()
 		}
 	}
 
@@ -993,7 +787,7 @@ fn mul(lhs: &RelativeDelta, rhs: f64) -> RelativeDelta {
 	let minutes = lhs.minutes as f64 * rhs;
 	let seconds = lhs.seconds as f64 * rhs;
 	let nanoseconds = lhs.nanoseconds as f64 * rhs;
-	let mut rddt_mul = RelativeDelta::ysmsdshsmsssns_f(
+	let mut rddt_mul = Builder::normalize(
 		years,
 		months,
 		days,
@@ -1076,10 +870,55 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(
+		clippy::approx_constant,
+		reason = "3.14 is an arbitrary input, not an approximation of pi"
+	)]
+	fn test_normalize() {
+		let ddt = Builder::normalize(1.5, -18.0, 0.0, 0.0, 0.0, 0.0, 0).build();
+		assert_eq!(ddt, RelativeDelta::default());
+
+		let ddt = Builder::normalize(-0.42, -15.7, -12.3, -5.32, 3.14, 0.15, 22232).build();
+		let r = RelativeDelta::with_years(-1)
+			.and_months(-8)
+			.and_months_f(-0.739_999_999_999_998_4)
+			.and_days(-12)
+			.and_hours(-12)
+			.and_minutes(-28)
+			.and_seconds(-3)
+			.and_nanoseconds(-449_977_768)
+			.build();
+		assert_eq!(ddt, r);
+	}
+
+	#[test]
+	fn test_absolute_setters_take_a_value_or_an_option() {
+		let from_value = RelativeDelta::with_day(1)
+			.and_weekday((Weekday::Fri, 2))
+			.build();
+		let from_option = RelativeDelta::with_day(Some(1))
+			.and_weekday(Some((Weekday::Fri, 2)))
+			.build();
+		assert_eq!(from_value, from_option);
+		let cleared = from_value.builder().and_day(None).and_weekday(None).build();
+		assert_eq!(cleared, RelativeDelta::default());
+	}
+
+	#[test]
 	fn test_builder() {
 		let rd = RelativeDelta::new_builder()
-			.and_yysmmsdds(Some(2020), 1, Some(1), 3, None, 12)
-			.and_hhsmmssss(Some(12), 1, Some(30), 15, Some(45), 20)
+			.and_year(2020)
+			.and_years(1)
+			.and_month(1)
+			.and_months(3)
+			.and_day(None)
+			.and_days(12)
+			.and_hour(12)
+			.and_hours(1)
+			.and_minute(30)
+			.and_minutes(15)
+			.and_second(45)
+			.and_seconds(20)
 			.build();
 		assert_eq!(rd.years, 1);
 		assert_eq!(rd.months, 3);

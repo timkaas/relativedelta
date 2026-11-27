@@ -60,7 +60,7 @@ docs.rs also show.
 |---------|-------------------|----------------|
 | **Add 1 month to Jan 31** | ❌ Breaks (Feb 31 doesn't exist) | ✅ Automatically clamps to Feb 28/29 |
 | **Get last day of month** | ❌ Manual: `date + months(1) - days(1)` | ✅ Simple: `.and_day(1).and_months(1).and_days(-1)` |
-| **Find 2nd Tuesday next quarter** | ❌ Complex date math + weekday logic | ✅ Direct: `.and_months(3).and_day(Some(1)).and_weekday(Some((Weekday::Tue, 2)))` |
+| **Find 2nd Tuesday next quarter** | ❌ Complex date math + weekday logic | ✅ Direct: `.and_months(3).and_day(1).and_weekday((Weekday::Tue, 2))` |
 | **Salary review in 1 month** | ❌ Naive addition fails on month boundaries | ✅ Semantic: `.and_months(1)` respects calendar |
 
 ## Overview
@@ -87,7 +87,7 @@ month, one would use the `::with_day()` or `.and_day()` method. All absolute val
 
 `RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to e.g.
 ask for the second Tuesday on or after the same date next year,
-with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Some((Weekday::Tue, 2))).build()`.
+with `Utc::now() + RelativeDelta::with_years(1).and_weekday((Weekday::Tue, 2)).build()`.
 
 ### Real-World Examples
 
@@ -117,7 +117,7 @@ use relativedelta::RelativeDelta;
 let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
 
 // Next monthly charge, always on the 15th
-let next_charge = today + RelativeDelta::with_months(1).and_day(Some(15)).build();
+let next_charge = today + RelativeDelta::with_months(1).and_day(15).build();
 assert_eq!(next_charge, NaiveDate::from_ymd_opt(2024, 4, 15).unwrap());
 
 // Quarterly reporting, three months forward
@@ -136,8 +136,8 @@ let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
 // Second Tuesday of next month
 let second_tuesday = today
     + RelativeDelta::with_months(1)
-        .and_day(Some(1))
-        .and_weekday(Some((Weekday::Tue, 2)))
+        .and_day(1)
+        .and_weekday((Weekday::Tue, 2))
         .build();
 assert_eq!(second_tuesday, NaiveDate::from_ymd_opt(2024, 4, 9).unwrap());
 
@@ -204,7 +204,7 @@ assert_eq!(months6, RelativeDelta::with_months(6).build());
 // set the month to January and add 3 months, then add 12 days
 let complex = RelativeDelta::with_year(2020)
     .and_years(1)
-    .and_month(Some(1))
+    .and_month(1)
     .and_months(3)
     .and_days(12)
     .build();
@@ -264,7 +264,7 @@ assert_eq!(last_day_of_month, Utc.with_ymd_and_hms(2024, 2, 29, 9, 30, 0).unwrap
 // First Monday on or after the same date next year
 let first_monday = now
     + RelativeDelta::with_years(1)
-        .and_weekday(Some((Weekday::Mon, 1)))
+        .and_weekday((Weekday::Mon, 1))
         .build();
 assert_eq!(first_monday, Utc.with_ymd_and_hms(2025, 2, 10, 9, 30, 0).unwrap());
 ```
@@ -312,8 +312,8 @@ use chrono::NaiveDate;
 use relativedelta::{RelativeDelta, Weekday};
 
 let third_tuesday_next_month = RelativeDelta::with_months(1)
-    .and_day(Some(1))
-    .and_weekday(Some((Weekday::Tue, 3)))
+    .and_day(1)
+    .and_weekday((Weekday::Tue, 3))
     .build();
 
 let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();

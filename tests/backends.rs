@@ -136,7 +136,7 @@ const fn at_start_time(year: i32, month: u8, day: u8) -> Civil {
 fn month_end(month: u8) -> RelativeDelta {
 	RelativeDelta::with_day(1)
 		.and_days(-1)
-		.and_month(Some(month))
+		.and_month(month)
 		.and_months(1)
 		.build()
 }
@@ -315,8 +315,8 @@ fn cases() -> Vec<Case> {
 			"set midnight",
 			START,
 			RelativeDelta::with_hour(0)
-				.and_minute(Some(0))
-				.and_second(Some(0))
+				.and_minute(0)
+				.and_second(0)
 				.build(),
 			ymd(2020, 4, 28),
 		),
@@ -325,7 +325,7 @@ fn cases() -> Vec<Case> {
 			"next Monday after a year",
 			START,
 			RelativeDelta::with_years(1)
-				.and_weekday(Some((Weekday::Mon, 1)))
+				.and_weekday((Weekday::Mon, 1))
 				.build(),
 			at_start_time(2021, 5, 3),
 		),
@@ -333,7 +333,7 @@ fn cases() -> Vec<Case> {
 			"previous Monday after a year",
 			START,
 			RelativeDelta::with_years(1)
-				.and_weekday(Some((Weekday::Mon, -1)))
+				.and_weekday((Weekday::Mon, -1))
 				.build(),
 			at_start_time(2021, 4, 26),
 		),
@@ -436,7 +436,7 @@ fn run<B: Backend>() {
 	}
 	if B::RESOLUTION == Resolution::Date {
 		let start = civil(ymd(2020, 4, 28), "clock fields");
-		let clock = RelativeDelta::with_hours(23).and_minute(Some(5)).build();
+		let clock = RelativeDelta::with_hours(23).and_minute(5).build();
 		assert_eq!(
 			clock.checked_add(&start),
 			Some(start.clone()),

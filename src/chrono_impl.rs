@@ -7,10 +7,9 @@ use core::ops;
 use chrono::{Datelike, Timelike};
 use num_integer::Integer;
 
-use crate::from_error::FromError;
 use crate::relativedelta::{MonthType, MonthsType, num_days_in_month};
 use crate::shift::sealed::Shift;
-use crate::{RelativeDelta, Weekday};
+use crate::{ConversionError, RelativeDelta, Weekday};
 
 macro_rules! impl_add_sub {
 	($base:ty, $ret:ty) => {
@@ -143,11 +142,15 @@ impl<Tz: chrono::TimeZone> CheckedAddDuration for chrono::DateTime<Tz> {
 impl RelativeDelta {
 	/// Returns the days through nanoseconds as one exact duration, or `None` on overflow.
 	fn time_duration(&self) -> Option<chrono::TimeDelta> {
-		chrono::TimeDelta::try_days(self.days())?
-			.checked_add(&chrono::TimeDelta::try_hours(self.hours())?)?
-			.checked_add(&chrono::TimeDelta::try_minutes(self.minutes())?)?
-			.checked_add(&chrono::TimeDelta::try_seconds(self.seconds())?)?
-			.checked_add(&chrono::TimeDelta::nanoseconds(self.nanoseconds()))
+		let days = chrono::TimeDelta::try_days(self.days())?;
+		let hours = chrono::TimeDelta::try_hours(self.hours())?;
+		let minutes = chrono::TimeDelta::try_minutes(self.minutes())?;
+		let seconds = chrono::TimeDelta::try_seconds(self.seconds())?;
+		let nanoseconds = chrono::TimeDelta::nanoseconds(self.nanoseconds());
+		let duration = days.checked_add(&hours)?;
+		let duration = duration.checked_add(&minutes)?;
+		let duration = duration.checked_add(&seconds)?;
+		duration.checked_add(&nanoseconds)
 	}
 
 	/// Calculates the adjusted year, month, and day from a `RelativeDelta` and source date
@@ -189,10 +192,9 @@ impl RelativeDelta {
 		D: Datelike + CheckedAddDuration,
 	{
 		if let Some((weekday, nth)) = self.weekday() {
-			let current = Weekday::from(u8::try_from(result.weekday().num_days_from_monday()).ok()?);
-			result.checked_add_duration(chrono::Duration::try_days(
-				weekday.jump_days_from(current, nth),
-			)?)
+			let current = Weekday::from(result.weekday());
+			let jump = chrono::TimeDelta::try_days(weekday.jump_days_from(current, nth))?;
+			result.checked_add_duration(jump)
 		}
 		else {
 			Some(result)
@@ -210,7 +212,7 @@ impl<Tz: chrono::TimeZone> ops::Add<&chrono::DateTime<Tz>> for &RelativeDelta {
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::DateTime<Tz>) -> Self::Output {
 		self
-			.checked_add_datetime(rhs)
+			.shift_datetime(rhs)
 			.expect("could not add RelativeDelta to datetime")
 	}
 }
@@ -222,7 +224,7 @@ impl RelativeDelta {
 	/// `chrono`, if a timezone transition makes the local time ambiguous, or if
 	/// the duration overflows.
 	#[must_use]
-	pub fn checked_add_datetime<Tz: chrono::TimeZone>(
+	fn shift_datetime<Tz: chrono::TimeZone>(
 		&self,
 		rhs: &chrono::DateTime<Tz>,
 	) -> Option<chrono::DateTime<Tz>> {
@@ -244,7 +246,8 @@ impl RelativeDelta {
 			.single()
 			.and_then(|d| d.with_nanosecond(nanosecond))?;
 
-		let ret = datetime.checked_add_signed(self.time_duration()?)?;
+		let duration = self.time_duration()?;
+		let ret = datetime.checked_add_signed(duration)?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
@@ -351,7 +354,7 @@ impl ops::Add<&chrono::NaiveDateTime> for &RelativeDelta {
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::NaiveDateTime) -> Self::Output {
 		self
-			.checked_add_naive_datetime(rhs)
+			.shift_naive_datetime(rhs)
 			.expect("could not add RelativeDelta to datetime")
 	}
 }
@@ -359,10 +362,7 @@ impl ops::Add<&chrono::NaiveDateTime> for &RelativeDelta {
 impl RelativeDelta {
 	/// Add this calendar delta to a `chrono::NaiveDateTime` without panicking.
 	#[must_use]
-	pub fn checked_add_naive_datetime(
-		&self,
-		rhs: &chrono::NaiveDateTime,
-	) -> Option<chrono::NaiveDateTime> {
+	fn shift_naive_datetime(&self, rhs: &chrono::NaiveDateTime) -> Option<chrono::NaiveDateTime> {
 		let DateComponents {
 			year,
 			month,
@@ -375,10 +375,11 @@ impl RelativeDelta {
 			nanosecond,
 		} = self.time_components(rhs);
 
-		let datetime = chrono::NaiveDate::from_ymd_opt(year, month, day)?
-			.and_hms_nano_opt(hour, minute, second, nanosecond)?;
+		let date = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
+		let datetime = date.and_hms_nano_opt(hour, minute, second, nanosecond)?;
 
-		let ret = datetime.checked_add_signed(self.time_duration()?)?;
+		let duration = self.time_duration()?;
+		let ret = datetime.checked_add_signed(duration)?;
 
 		self.apply_weekday_adjustment(ret)
 	}
@@ -393,7 +394,7 @@ impl ops::Add<&chrono::NaiveDate> for &RelativeDelta {
 	#[allow(clippy::cast_sign_loss)]
 	fn add(self, rhs: &chrono::NaiveDate) -> Self::Output {
 		self
-			.checked_add_date(rhs)
+			.shift_date(*rhs)
 			.expect("could not add RelativeDelta to date")
 	}
 }
@@ -401,51 +402,105 @@ impl ops::Add<&chrono::NaiveDate> for &RelativeDelta {
 impl RelativeDelta {
 	/// Add this calendar delta to a `chrono::NaiveDate` without panicking.
 	#[must_use]
-	pub fn checked_add_date(&self, rhs: &chrono::NaiveDate) -> Option<chrono::NaiveDate> {
+	fn shift_date(&self, rhs: chrono::NaiveDate) -> Option<chrono::NaiveDate> {
 		let DateComponents {
 			year,
 			month,
 			day,
-		} = self.date_components(rhs)?;
+		} = self.date_components(&rhs)?;
 
 		let date = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
 
-		let ret = date.checked_add_signed(chrono::TimeDelta::try_days(self.days())?)?;
+		let days = chrono::TimeDelta::try_days(self.days())?;
+		let ret = date.checked_add_signed(days)?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
 
 impl_add_sub!(chrono::NaiveDate, chrono::NaiveDate);
 
+impl RelativeDelta {
+	/// Returns `rhs` moved by this delta, or `None` if the result is not representable.
+	#[must_use]
+	#[deprecated(
+		since = "1.0.0",
+		note = "use `RelativeDelta::checked_add`, which takes every supported type"
+	)]
+	pub fn checked_add_date(&self, rhs: &chrono::NaiveDate) -> Option<chrono::NaiveDate> {
+		self.checked_add(rhs)
+	}
+
+	/// Returns `rhs` moved by this delta, or `None` if the result is not representable.
+	#[must_use]
+	#[deprecated(
+		since = "1.0.0",
+		note = "use `RelativeDelta::checked_add`, which takes every supported type"
+	)]
+	pub fn checked_add_naive_datetime(
+		&self,
+		rhs: &chrono::NaiveDateTime,
+	) -> Option<chrono::NaiveDateTime> {
+		self.checked_add(rhs)
+	}
+
+	/// Returns `rhs` moved by this delta, or `None` if the result is not representable.
+	#[must_use]
+	#[deprecated(
+		since = "1.0.0",
+		note = "use `RelativeDelta::checked_add`, which takes every supported type"
+	)]
+	pub fn checked_add_datetime<Tz: chrono::TimeZone>(
+		&self,
+		rhs: &chrono::DateTime<Tz>,
+	) -> Option<chrono::DateTime<Tz>> {
+		self.checked_add(rhs)
+	}
+}
+
+/// Converts chrono's weekday to the same day.
+impl From<chrono::Weekday> for Weekday {
+	fn from(weekday: chrono::Weekday) -> Self {
+		match weekday {
+			chrono::Weekday::Mon => Self::Mon,
+			chrono::Weekday::Tue => Self::Tue,
+			chrono::Weekday::Wed => Self::Wed,
+			chrono::Weekday::Thu => Self::Thu,
+			chrono::Weekday::Fri => Self::Fri,
+			chrono::Weekday::Sat => Self::Sat,
+			chrono::Weekday::Sun => Self::Sun,
+		}
+	}
+}
+
 impl Shift for chrono::NaiveDate {
 	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
-		delta.checked_add_date(self)
+		delta.shift_date(*self)
 	}
 }
 
 impl Shift for chrono::NaiveDateTime {
 	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
-		delta.checked_add_naive_datetime(self)
+		delta.shift_naive_datetime(self)
 	}
 }
 
 impl<Tz: chrono::TimeZone> Shift for chrono::DateTime<Tz> {
 	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
-		delta.checked_add_datetime(self)
+		delta.shift_datetime(self)
 	}
 }
 
 impl TryFrom<RelativeDelta> for chrono::NaiveDateTime {
-	type Error = FromError;
+	type Error = ConversionError;
 
 	fn try_from(rddt: RelativeDelta) -> Result<Self, Self::Error> {
-		let year = rddt.year().ok_or(FromError::MissingYear)?;
-		let year = year.try_into().map_err(|_| FromError::MissingYear)?;
-		let month = rddt.month().ok_or(FromError::MissingMonth)?;
-		let day = rddt.day().ok_or(FromError::MissingDay)?;
+		let year = rddt.year().ok_or(ConversionError::MissingYear)?;
+		let year = year.try_into().map_err(|_| ConversionError::InvalidDate)?;
+		let month = rddt.month().ok_or(ConversionError::MissingMonth)?;
+		let day = rddt.day().ok_or(ConversionError::MissingDay)?;
 
 		let date = chrono::NaiveDate::from_ymd_opt(year, month.into(), day.into())
-			.ok_or(FromError::InvalidDateComponents)?;
+			.ok_or(ConversionError::InvalidDate)?;
 
 		date
 			.and_hms_nano_opt(
@@ -454,7 +509,7 @@ impl TryFrom<RelativeDelta> for chrono::NaiveDateTime {
 				u32::from(rddt.second().unwrap_or(0)),
 				rddt.nanosecond().unwrap_or(0),
 			)
-			.ok_or(FromError::InvalidTimeComponents)
+			.ok_or(ConversionError::InvalidTime)
 	}
 }
 
@@ -463,16 +518,16 @@ mod tests {
 	use chrono::{Datelike, Timelike};
 	use similar_asserts::assert_eq;
 
-	use crate::RelativeDelta;
+	use crate::{ConversionError, RelativeDelta};
 
 	#[test]
 	fn test_try_from() -> anyhow::Result<()> {
 		let rddt = RelativeDelta::with_year(2020)
-			.and_month(Some(4))
-			.and_day(Some(28))
-			.and_hour(Some(12))
-			.and_minute(Some(35))
-			.and_second(Some(48))
+			.and_month(4)
+			.and_day(28)
+			.and_hour(12)
+			.and_minute(35)
+			.and_second(48)
 			.build();
 
 		let naive_dt: chrono::NaiveDateTime = rddt.try_into()?;
@@ -499,8 +554,44 @@ mod tests {
 		assert!(
 			RelativeDelta::with_days(1)
 				.build()
-				.checked_add_date(&maximum)
+				.checked_add(&maximum)
 				.is_none()
+		);
+	}
+
+	#[test]
+	fn test_weekday_from_chrono() {
+		let mut day = chrono::Weekday::Mon;
+		for _ in 0..7 {
+			let converted = crate::Weekday::from(day);
+			let expected = u8::try_from(day.num_days_from_monday()).unwrap();
+			assert_eq!(converted.num_days_from_monday(), expected);
+			day = day.succ();
+		}
+	}
+
+	#[test]
+	fn test_try_from_reports_the_failing_field() {
+		let missing_year = RelativeDelta::with_month(1).and_day(1).build();
+		assert_eq!(
+			chrono::NaiveDateTime::try_from(missing_year),
+			Err(ConversionError::MissingYear)
+		);
+		let out_of_range = RelativeDelta::with_year(1_000_000)
+			.and_month(1)
+			.and_day(1)
+			.build();
+		assert_eq!(
+			chrono::NaiveDateTime::try_from(out_of_range),
+			Err(ConversionError::InvalidDate)
+		);
+		let leap_day = RelativeDelta::with_year(2023)
+			.and_month(2)
+			.and_day(29)
+			.build();
+		assert_eq!(
+			chrono::NaiveDateTime::try_from(leap_day),
+			Err(ConversionError::InvalidDate)
 		);
 	}
 }

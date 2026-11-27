@@ -11,8 +11,8 @@ your date/time needs. The examples use chrono and fixed dates so every result ca
 | **Fixed time intervals** | ✅ Excellent | ✅ Days, hours, minutes, seconds and nanoseconds |
 | **Adding months/years** | ❌ Not possible | ✅ Core strength |
 | **Month boundaries** | ❌ Breaks | ✅ Handles automatically |
-| **Lock to specific day** | ❌ Not available | ✅ `.and_day(Some(15))` |
-| **Target weekdays** | ❌ Not available | ✅ `.and_weekday(Some((Weekday::Tue, 2)))` |
+| **Lock to specific day** | ❌ Not available | ✅ `.and_day(15)` |
+| **Target weekdays** | ❌ Not available | ✅ `.and_weekday((Weekday::Tue, 2))` |
 | **Serialization** | ✅ Via serde | ✅ Via the serde feature |
 | **No-std support** | ✅ Yes | ✅ Yes |
 
@@ -101,8 +101,8 @@ let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
 // Next month, from its 1st, at the 2nd Tuesday
 let second_tuesday = today
     + RelativeDelta::with_months(1)
-        .and_day(Some(1))
-        .and_weekday(Some((Weekday::Tue, 2)))
+        .and_day(1)
+        .and_weekday((Weekday::Tue, 2))
         .build();
 assert_eq!(second_tuesday, NaiveDate::from_ymd_opt(2024, 4, 9).unwrap());
 ```
@@ -167,7 +167,7 @@ use chrono::NaiveDate;
 use relativedelta::RelativeDelta;
 
 let today = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
-let year_end = today + RelativeDelta::with_month(12).and_day(Some(31)).build();
+let year_end = today + RelativeDelta::with_month(12).and_day(31).build();
 assert_eq!(year_end, NaiveDate::from_ymd_opt(2024, 12, 31).unwrap());
 ```
 

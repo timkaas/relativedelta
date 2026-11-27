@@ -17,7 +17,6 @@ unmaintained = "workspace"
 #   { id = "RUSTSEC-0000-0000", reason = "…; review 2027-01-01" },
 ignore = [
 	{ id = "RUSTSEC-2026-0543", reason = "chrono stays an optional backend for its users; jiff is recommended for new code; review 2027-06-01" },
-	{ id = "RUSTSEC-2024-0436", reason = "paste is removed in the 1.0 API cleanup; review 2027-01-31" },
 ]
 
 [licenses]

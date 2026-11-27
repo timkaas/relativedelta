@@ -17,10 +17,10 @@ path = "src/lib.rs"
 
 [features]
 default = ["num-traits/libm"]
-std = ["chrono?/std", "chrono?/clock", "time?/std", "jiff?/std", "num-integer/std", "num-traits/std", "thiserror?/std"]
-time = ["dep:time", "dep:time-core", "dep:thiserror"]
-chrono = ["dep:chrono", "dep:thiserror"]
-jiff = ["dep:jiff", "dep:thiserror"]
+std = ["chrono?/std", "chrono?/clock", "time?/std", "jiff?/std", "num-integer/std", "num-traits/std", "thiserror/std"]
+time = ["dep:time", "dep:time-core"]
+chrono = ["dep:chrono"]
+jiff = ["dep:jiff"]
 serde = ["std", "dep:serde", "chrono?/serde", "time?/serde"]
 schemars = ["std", "dep:schemars"]
 
@@ -31,8 +31,7 @@ jiff = { version = "1.0.3", optional = true, default-features = false }
 num-integer = { version = "0.1.47", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
 serde = { version = "1.0.229", optional = true, features = ["derive"] }
-paste = "1.0.15"
-thiserror = { version = "2.0.21", optional = true, default-features = false }
+thiserror = { version = "2.0.21", default-features = false }
 time-core = { version = "0.1.9", optional = true }
 schemars = { version = "1.2.3", optional = true }
 

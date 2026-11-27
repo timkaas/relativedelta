@@ -49,7 +49,7 @@
 //!
 //! `RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to e.g.
 //! ask for the second tuesday one year from today,
-//! with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Some(Weekday::Tue, 2)).build()`.
+//! with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Weekday::Tue, 2).build()`.
 //!
 //! ### Examples
 //!
@@ -92,7 +92,7 @@
 //! // Set year to 2020, add 1 year, set month to January, add 3 months, add 12 days
 //! let complex = RelativeDelta::with_year(2020)
 //! .and_years(1)
-//! .and_month(Some(1))
+//! .and_month(1)
 //! .and_months(3)
 //! .and_days(12)
 //! .build();
@@ -150,7 +150,7 @@ let last_day_of_month = chrono::Utc::now() + RelativeDelta::with_day(1)
 .build();
 // Get the first Monday after one year from a specific date
 let first_monday_after_one_year = chrono::Utc::now() + RelativeDelta::with_years(1)
-.and_weekday(Some((Weekday::Mon, 1)))
+.and_weekday((Weekday::Mon, 1))
 .build();
 ```
 "
@@ -190,7 +190,7 @@ let last_day_of_month = date(2024, 2, 10) + RelativeDelta::with_day(1)
 assert_eq!(last_day_of_month, date(2024, 2, 29));
 // Get the first Monday after one year from a specific date
 let first_monday_after_one_year = date(2024, 2, 10) + RelativeDelta::with_years(1)
-.and_weekday(Some((Weekday::Mon, 1)))
+.and_weekday((Weekday::Mon, 1))
 .build();
 assert_eq!(first_monday_after_one_year, date(2025, 2, 10));
 ```
@@ -203,7 +203,7 @@ assert_eq!(first_monday_after_one_year, date(2025, 2, 10));
 //! ```rust
 //! # use relativedelta::{RelativeDelta, Weekday};
 //! let third_tuesday_next_month = RelativeDelta::with_months(1)
-//! .and_weekday(Some((Weekday::Tue, 3)))
+//! .and_weekday((Weekday::Tue, 3))
 //! .build();
 //! ```
 
@@ -237,7 +237,9 @@ mod time_impl;
 mod jiff_impl;
 
 #[cfg(any(feature = "time", feature = "chrono", feature = "jiff"))]
-mod from_error;
+mod conversion_error;
+#[cfg(any(feature = "time", feature = "chrono", feature = "jiff"))]
+pub use crate::conversion_error::ConversionError;
 
 /// `shift` is a module that defines the backend-agnostic `Shift` trait behind `RelativeDelta::checked_add`.
 mod shift;
@@ -271,48 +273,26 @@ mod tests {
 
 		assert_eq!(
 			r,
-			RelativeDelta::yysmmsdds(None, 5, None, 3, None, -7)
+			RelativeDelta::with_years(5)
+				.and_months(3)
+				.and_days(-7)
 				.and_minutes(-30)
 				.build()
 		);
 
-		let rhs = RelativeDelta::yysmmsdds(Some(2020), 1, Some(1), 42, None, 0).build();
+		let rhs = RelativeDelta::with_year(2020)
+			.and_years(1)
+			.and_month(1)
+			.and_months(42)
+			.build();
 		assert_eq!(
 			rhs * 0.5,
 			RelativeDelta::with_years(2)
-				.and_year(Some(2020))
+				.and_year(2020)
 				.and_months(3)
-				.and_month(Some(1))
+				.and_month(1)
 				.build()
 		);
-	}
-
-	#[test]
-	#[allow(
-		clippy::approx_constant,
-		reason = "3.14 is an arbitrary input, not an approximation of pi"
-	)]
-	fn test_init_with_float() {
-		let ddt = RelativeDelta::ysmsdshsmsssns_f(1.5, -18.0, 0.0, 0.0, 0.0, 0.0, 0).build();
-		assert_eq!(
-			ddt,
-			RelativeDelta::yysmmsdds(None, 0, None, 0, None, 0)
-				.and_hhsmmssss(None, 0, None, 0, None, 0)
-				.build()
-		);
-
-		let ddt =
-			RelativeDelta::ysmsdshsmsssns_f(-0.42, -15.7, -12.3, -5.32, 3.14, 0.15, 22232).build();
-		let r = RelativeDelta::with_years(-1)
-			.and_months(-8)
-			.and_months_f(-0.739_999_999_999_998_4)
-			.and_days(-12)
-			.and_hours(-12)
-			.and_minutes(-28)
-			.and_seconds(-3)
-			.and_nanoseconds(-449_977_768)
-			.build();
-		assert_eq!(ddt, r);
 	}
 
 	#[test]
