@@ -341,14 +341,15 @@ impl Builder {
 /// Implemented operators
 /// ```
 /// # use relativedelta::{RelativeDelta, Weekday};
-/// // Two or more RelativeDeltas can be added and subtracted. However, note that constants are lost in the process.
-/// let lhs = RelativeDelta::with_year(2020).and_years(-4).and_month(1).and_months(3).build();
-/// let rhs = RelativeDelta::with_year(2020).and_years(1).and_month(1).and_months(42).build();
-/// assert_eq!(lhs + rhs, RelativeDelta::with_years(-3).and_months(45).build());
-/// assert_eq!(lhs - rhs, RelativeDelta::with_years(-5).and_months(-39).build());
-/// assert_eq!(-lhs + rhs, RelativeDelta::with_years(5).and_months(39).build());
-/// // The RelativeDelta can be multiplied with a f64.
-/// assert_eq!(rhs * 0.5, RelativeDelta::with_years(2).and_year(2020).and_months(3).and_month(1).build());
+/// // Adding and subtracting combine the relative fields. An absolute field set on both sides comes
+/// // from the right operand of `+` and the left operand of `-`, as in dateutil.
+/// let lhs = RelativeDelta::with_year(2020).and_years(-4).and_months(3).build();
+/// let rhs = RelativeDelta::with_year(2021).and_years(1).and_day(1).and_months(42).build();
+/// assert_eq!(lhs + rhs, RelativeDelta::with_year(2021).and_day(1).and_years(-3).and_months(45).build());
+/// assert_eq!(lhs - rhs, RelativeDelta::with_year(2020).and_day(1).and_years(-5).and_months(-39).build());
+/// // Negating and multiplying keep the absolute fields.
+/// assert_eq!(-lhs, RelativeDelta::with_year(2020).and_years(4).and_months(-3).build());
+/// assert_eq!(rhs * 0.5, RelativeDelta::with_year(2021).and_day(1).and_years(2).and_months(3).build());
 /// assert_eq!(rhs * 0.5, 0.5 * rhs);
 /// ```
 /// This crates party piece is the ability to calculate dates based on already existing `chrono::DateTime`
@@ -765,23 +766,47 @@ impl_op_ex!(-|rhs: &RelativeDelta| -> RelativeDelta {
 		minutes: -rhs.minutes,
 		seconds: -rhs.seconds,
 		nanoseconds: -rhs.nanoseconds,
+		months_f: -rhs.months_f,
 		..*rhs
 	}
 });
 
-// Add (commutative)
-impl_op_ex!(+|lhs: &RelativeDelta, rhs: &RelativeDelta| -> RelativeDelta {
-		Builder {years: lhs.years + rhs.years, months: lhs.months + rhs.months, days: lhs.days + rhs.days, hours: lhs.hours + rhs.hours, minutes: lhs.minutes + rhs.minutes, seconds: lhs.seconds + rhs.seconds, nanoseconds: lhs.nanoseconds + rhs.nanoseconds, ..Default::default()}.build()
-});
+/// Returns the sum of the relative fields, taking each absolute field and the weekday from `rhs`
+/// where it is set and from `lhs` otherwise, like dateutil.
+fn add(lhs: &RelativeDelta, rhs: &RelativeDelta) -> RelativeDelta {
+	Builder {
+		years: lhs.years + rhs.years,
+		months: lhs.months + rhs.months,
+		months_f: lhs.months_f + rhs.months_f,
+		days: lhs.days + rhs.days,
+		hours: lhs.hours + rhs.hours,
+		minutes: lhs.minutes + rhs.minutes,
+		seconds: lhs.seconds + rhs.seconds,
+		nanoseconds: lhs.nanoseconds + rhs.nanoseconds,
+		year: rhs.year.or(lhs.year),
+		month: rhs.month.or(lhs.month),
+		day: rhs.day.or(lhs.day),
+		weekday: rhs.weekday.or(lhs.weekday),
+		hour: rhs.hour.or(lhs.hour),
+		minute: rhs.minute.or(lhs.minute),
+		second: rhs.second.or(lhs.second),
+		nanosecond: rhs.nanosecond.or(lhs.nanosecond),
+	}
+	.build()
+}
 
-impl_op_ex!(-|lhs: &RelativeDelta, rhs: &RelativeDelta| -> RelativeDelta { -rhs + lhs });
+impl_op_ex!(+|lhs: &RelativeDelta, rhs: &RelativeDelta| -> RelativeDelta { add(lhs, rhs) });
+
+// Negation keeps the absolute fields and `add` prefers its right operand, so `lhs` wins here, as in
+// dateutil's subtraction.
+impl_op_ex!(-|lhs: &RelativeDelta, rhs: &RelativeDelta| -> RelativeDelta { add(&-rhs, lhs) });
 
 #[allow(clippy::cast_precision_loss)]
 #[allow(clippy::cast_possible_truncation)]
 fn mul(lhs: &RelativeDelta, rhs: f64) -> RelativeDelta {
 	// Calculate relatives
 	let years = lhs.years as f64 * rhs;
-	let months = lhs.months as f64 * rhs;
+	let months = (lhs.months as f64 + lhs.months_f) * rhs;
 	let days = lhs.days as f64 * rhs;
 	let hours = lhs.hours as f64 * rhs;
 	let minutes = lhs.minutes as f64 * rhs;
@@ -796,7 +821,8 @@ fn mul(lhs: &RelativeDelta, rhs: f64) -> RelativeDelta {
 		seconds,
 		nanoseconds as i64,
 	);
-	// Copy over constants
+	// The absolute fields and the weekday stay, like dateutil.
+	rddt_mul.weekday = lhs.weekday;
 	rddt_mul.year = lhs.year;
 	rddt_mul.month = lhs.month;
 	rddt_mul.day = lhs.day;
@@ -828,6 +854,74 @@ mod tests {
 	use similar_asserts::assert_eq;
 
 	use super::*;
+
+	/// Returns deltas that both set the year, matching dateutil's
+	/// `relativedelta(year=2020, day=1, weekday=MO, years=1)` and
+	/// `relativedelta(year=2021, hour=3, months=2)`.
+	fn absolutes_on_both_sides() -> (RelativeDelta, RelativeDelta) {
+		let lhs = RelativeDelta::with_year(2020)
+			.and_day(1)
+			.and_weekday((Weekday::Mon, 1))
+			.and_years(1)
+			.build();
+		let rhs = RelativeDelta::with_year(2021)
+			.and_hour(3)
+			.and_months(2)
+			.build();
+		(lhs, rhs)
+	}
+
+	#[test]
+	fn test_add_takes_absolutes_from_the_right_where_set() {
+		let (lhs, rhs) = absolutes_on_both_sides();
+		let expected = RelativeDelta::with_year(2021)
+			.and_day(1)
+			.and_hour(3)
+			.and_weekday((Weekday::Mon, 1))
+			.and_years(1)
+			.and_months(2)
+			.build();
+		assert_eq!(lhs + rhs, expected);
+		assert_eq!((rhs + lhs).year(), Some(2020));
+	}
+
+	#[test]
+	fn test_sub_takes_absolutes_from_the_left_where_set() {
+		let (lhs, rhs) = absolutes_on_both_sides();
+		let expected = RelativeDelta::with_year(2020)
+			.and_day(1)
+			.and_hour(3)
+			.and_weekday((Weekday::Mon, 1))
+			.and_years(1)
+			.and_months(-2)
+			.build();
+		assert_eq!(lhs - rhs, expected);
+		assert_eq!((rhs - lhs).year(), Some(2021));
+	}
+
+	#[test]
+	#[allow(
+		clippy::float_cmp,
+		reason = "negating and doubling 0.25 are exact in binary floating point"
+	)]
+	fn test_negate_and_mul_keep_absolutes_and_weekday() {
+		let (lhs, _) = absolutes_on_both_sides();
+		let fractional = lhs.builder().and_months_f(0.25).build();
+
+		let negated = -fractional;
+		assert_eq!(negated.years(), -1);
+		assert_eq!(negated.months_f(), -0.25);
+		assert_eq!(negated.year(), Some(2020));
+		assert_eq!(negated.day(), Some(1));
+		assert_eq!(negated.weekday(), Some((Weekday::Mon, 1)));
+
+		let doubled = fractional * 2.0;
+		assert_eq!(doubled.years(), 2);
+		assert_eq!(doubled.months_f(), 0.5);
+		assert_eq!(doubled.year(), Some(2020));
+		assert_eq!(doubled.day(), Some(1));
+		assert_eq!(doubled.weekday(), Some((Weekday::Mon, 1)));
+	}
 
 	#[test]
 	fn test_negate() {

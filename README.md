@@ -213,26 +213,28 @@ assert_eq!(complex.year(), Some(2020));
 
 #### Operations Between RelativeDelta Instances
 
-Addition and subtraction (note that absolute values are lost in these operations):
+Addition and subtraction combine the relative values. An absolute value set on both sides comes
+from the right operand of `+` and from the left operand of `-`, as in dateutil:
 
 ```rust
 use relativedelta::RelativeDelta;
 
-let delta1 = RelativeDelta::with_years(-4).and_months(3).build();
-let delta2 = RelativeDelta::with_years(1).and_months(42).build();
+let delta1 = RelativeDelta::with_years(-4).and_months(3).and_day(1).build();
+let delta2 = RelativeDelta::with_years(1).and_months(42).and_day(15).build();
 
-assert_eq!(delta1 + delta2, RelativeDelta::with_years(-3).and_months(45).build());
-assert_eq!(delta1 - delta2, RelativeDelta::with_years(-5).and_months(-39).build());
-assert_eq!(-delta1 + delta2, RelativeDelta::with_years(5).and_months(39).build());
+assert_eq!(delta1 + delta2, RelativeDelta::with_years(-3).and_months(45).and_day(15).build());
+assert_eq!(delta1 - delta2, RelativeDelta::with_years(-5).and_months(-39).and_day(1).build());
+assert_eq!(-delta1 + delta2, RelativeDelta::with_years(5).and_months(39).and_day(15).build());
 ```
 
-Multiplication with a float:
+Negation and multiplication with a float keep the absolute values:
 
 ```rust
 use relativedelta::RelativeDelta;
 
-let delta = RelativeDelta::with_years(4).and_months(6).build();
-assert_eq!(delta * 0.5, RelativeDelta::with_years(2).and_months(3).build());
+let delta = RelativeDelta::with_years(4).and_months(6).and_day(1).build();
+assert_eq!(delta * 0.5, RelativeDelta::with_years(2).and_months(3).and_day(1).build());
+assert_eq!(-delta, RelativeDelta::with_years(-4).and_months(-6).and_day(1).build());
 ```
 
 #### Modifying an Existing RelativeDelta
