@@ -7,7 +7,9 @@ All notable changes to this crate. The format follows
 
 ## [Unreleased]
 
-The 1.0 release. The repository moved to
+## [1.0.0-rc.1] - 2026-11-27
+
+The release candidate for 1.0. The repository moved to
 [LunaPinc/relativedelta](https://github.com/LunaPinc/relativedelta).
 
 ### Added
@@ -79,7 +81,8 @@ The 1.0 release. The repository moved to
 ## [0.3.0] - 2025-08-06
 
 Added the `time` backend and put chrono behind the `chrono` feature, replaced `Builder::new` with
-`build`, renamed the `serde1` feature to `serde`, and moved to edition 2024.
+`build`, renamed the `serde1` feature to `serde`, and moved to edition 2024. See the
+[0.2 to 0.3 migration guide](docs/migrating-to-0.3.md).
 
 ## [0.2.2] - 2020-08-27
 
@@ -98,7 +101,8 @@ Added the `time` backend and put chrono behind the `chrono` feature, replaced `B
 
 The first release.
 
-[Unreleased]: https://github.com/LunaPinc/relativedelta/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/LunaPinc/relativedelta/compare/v1.0.0-rc.1...HEAD
+[1.0.0-rc.1]: https://github.com/LunaPinc/relativedelta/compare/v0.3.4...v1.0.0-rc.1
 [0.3.4]: https://github.com/LunaPinc/relativedelta/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/LunaPinc/relativedelta/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/LunaPinc/relativedelta/compare/v0.3.1...v0.3.2

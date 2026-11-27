@@ -10,6 +10,8 @@ license = "MPL-2.0"
 repository = "https://github.com/LunaPinc/relativedelta"
 documentation = "https://docs.rs/relativedelta"
 categories = ["date-and-time", "no-std", "no-std::no-alloc"]
+# The source, its docs and the markdown it compiles as doctests; CI and tooling stay in the repo.
+include = ["/src", "/tests", "/docs", "/README.md", "/CHANGELOG.md", "/LICENSE", "/NOTICE"]
 
 [lib]
 name = "relativedelta"

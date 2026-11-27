@@ -70,10 +70,11 @@ jobs:
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           draft: false
-          prerelease: false
+          # A tag with a suffix, such as v1.0.0-rc.1, is a pre-release and never the latest release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           target_commitish: main
           generate_release_notes: true
-          make_latest: true
+          make_latest: ${{ !contains(github.ref_name, '-') }}
 
   crates_io_publish:
     name: Publish (crates.io)
