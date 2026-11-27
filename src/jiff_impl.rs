@@ -7,10 +7,9 @@ use jiff::tz::TimeZone;
 use jiff::{SignedDuration, Timestamp, ZonedDateTime};
 use num_integer::Integer;
 
-use crate::from_error::FromError;
 use crate::relativedelta::MonthsType;
 use crate::shift::sealed::Shift;
-use crate::{RelativeDelta, Weekday};
+use crate::{ConversionError, RelativeDelta, Weekday};
 
 /// Returns the absolute field if set, else the field of the source, as jiff's `i8`.
 fn field(absolute: Option<u8>, source: i8) -> Option<i8> {
@@ -34,10 +33,12 @@ fn anchor_date(delta: &RelativeDelta, source: Date) -> Option<Date> {
 		.map_or(source.month().into(), MonthsType::from)
 		.checked_add(delta.months())?;
 	let (extra_years, month_offset) = (month - 1).div_mod_floor(&12);
-	let year = i16::try_from(year.checked_add(extra_years)?).ok()?;
+	let year = year.checked_add(extra_years)?;
+	let year = i16::try_from(year).ok()?;
 	let month = i8::try_from(month_offset + 1).ok()?;
-	let days_in_month = Date::new(year, month, 1).ok()?.days_in_month();
-	let day = field(delta.day(), source.day())?.min(days_in_month);
+	let first_of_month = Date::new(year, month, 1).ok()?;
+	let day = field(delta.day(), source.day())?;
+	let day = day.min(first_of_month.days_in_month());
 	Date::new(year, month, day).ok()
 }
 
@@ -48,31 +49,27 @@ fn anchor_time(delta: &RelativeDelta, source: Time) -> Option<Time> {
 		.map_or(Some(source.subsec_nanosecond()), |value| {
 			i32::try_from(value).ok()
 		})?;
-	Time::new(
-		field(delta.hour(), source.hour())?,
-		field(delta.minute(), source.minute())?,
-		field(delta.second(), source.second())?,
-		nanosecond,
-	)
-	.ok()
+	let hour = field(delta.hour(), source.hour())?;
+	let minute = field(delta.minute(), source.minute())?;
+	let second = field(delta.second(), source.second())?;
+	Time::new(hour, minute, second, nanosecond).ok()
 }
 
 /// Returns `source` with the delta's absolute fields applied and its years and months added.
 fn anchor_datetime(delta: &RelativeDelta, source: DateTime) -> Option<DateTime> {
-	Some(DateTime::from_parts(
-		anchor_date(delta, source.date())?,
-		anchor_time(delta, source.time())?,
-	))
+	let date = anchor_date(delta, source.date())?;
+	let time = anchor_time(delta, source.time())?;
+	Some(DateTime::from_parts(date, time))
 }
 
 /// Returns the delta's days through nanoseconds as one exact duration, or `None` on overflow.
 fn exact_duration(delta: &RelativeDelta) -> Option<SignedDuration> {
-	let seconds = delta
-		.days()
-		.checked_mul(86_400)?
-		.checked_add(delta.hours().checked_mul(3_600)?)?
-		.checked_add(delta.minutes().checked_mul(60)?)?
-		.checked_add(delta.seconds())?;
+	let day_seconds = delta.days().checked_mul(86_400)?;
+	let hour_seconds = delta.hours().checked_mul(3_600)?;
+	let minute_seconds = delta.minutes().checked_mul(60)?;
+	let seconds = day_seconds.checked_add(hour_seconds)?;
+	let seconds = seconds.checked_add(minute_seconds)?;
+	let seconds = seconds.checked_add(delta.seconds())?;
 	SignedDuration::from_secs(seconds).checked_add(SignedDuration::from_nanos(delta.nanoseconds()))
 }
 
@@ -83,29 +80,42 @@ fn weekday_jump(delta: &RelativeDelta, current: jiff::civil::Weekday) -> Option<
 	else {
 		return Some(SignedDuration::ZERO);
 	};
-	// The Monday-zero offset is in 0..=6, so its absolute value is the value itself.
-	let current = Weekday::from(current.to_monday_zero_offset().unsigned_abs());
-	days(weekday.jump_days_from(current, nth))
+	days(weekday.jump_days_from(Weekday::from(current), nth))
+}
+
+/// Converts jiff's weekday to the same day.
+impl From<jiff::civil::Weekday> for Weekday {
+	fn from(weekday: jiff::civil::Weekday) -> Self {
+		match weekday {
+			jiff::civil::Weekday::Monday => Self::Mon,
+			jiff::civil::Weekday::Tuesday => Self::Tue,
+			jiff::civil::Weekday::Wednesday => Self::Wed,
+			jiff::civil::Weekday::Thursday => Self::Thu,
+			jiff::civil::Weekday::Friday => Self::Fri,
+			jiff::civil::Weekday::Saturday => Self::Sat,
+			jiff::civil::Weekday::Sunday => Self::Sun,
+		}
+	}
 }
 
 impl Shift for Date {
 	/// Uses only the date fields and the days of the delta, like `chrono::NaiveDate`.
 	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
-		let date = anchor_date(delta, *self)?
-			.checked_add(days(delta.days())?)
-			.ok()?;
-		date.checked_add(weekday_jump(delta, date.weekday())?).ok()
+		let anchored = anchor_date(delta, *self)?;
+		let days = days(delta.days())?;
+		let date = anchored.checked_add(days).ok()?;
+		let jump = weekday_jump(delta, date.weekday())?;
+		date.checked_add(jump).ok()
 	}
 }
 
 impl Shift for DateTime {
 	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
-		let datetime = anchor_datetime(delta, *self)?
-			.checked_add(exact_duration(delta)?)
-			.ok()?;
-		datetime
-			.checked_add(weekday_jump(delta, datetime.weekday())?)
-			.ok()
+		let anchored = anchor_datetime(delta, *self)?;
+		let duration = exact_duration(delta)?;
+		let datetime = anchored.checked_add(duration).ok()?;
+		let jump = weekday_jump(delta, datetime.weekday())?;
+		datetime.checked_add(jump).ok()
 	}
 }
 
@@ -123,13 +133,13 @@ impl Shift for ZonedDateTime {
 	/// Returns `None` if the local date and time falls in a gap or fold of the time zone.
 	fn checked_shift(&self, delta: &RelativeDelta) -> Option<Self> {
 		let local = anchor_datetime(delta, self.datetime())?;
-		let zoned = self
+		let anchored = self
 			.time_zone()
 			.to_ambiguous_zoned_datetime(local)
 			.unambiguous()
-			.ok()?
-			.checked_add(exact_duration(delta)?)
 			.ok()?;
+		let duration = exact_duration(delta)?;
+		let zoned = anchored.checked_add(duration).ok()?;
 		let jump = weekday_jump(delta, zoned.weekday())?;
 		zoned.checked_add(jump).ok()
 	}
@@ -146,20 +156,18 @@ impl_op_ex!(-|lhs: &Timestamp, rhs: &RelativeDelta| -> Timestamp { lhs + (-rhs) 
 impl_op_ex!(-|lhs: &ZonedDateTime, rhs: &RelativeDelta| -> ZonedDateTime { lhs + (-rhs) });
 
 impl TryFrom<RelativeDelta> for DateTime {
-	type Error = FromError;
+	type Error = ConversionError;
 
 	fn try_from(delta: RelativeDelta) -> Result<Self, Self::Error> {
-		let year = delta.year().ok_or(FromError::MissingYear)?;
-		let month = delta.month().ok_or(FromError::MissingMonth)?;
-		let day = delta.day().ok_or(FromError::MissingDay)?;
+		let year = delta.year().ok_or(ConversionError::MissingYear)?;
+		let month = delta.month().ok_or(ConversionError::MissingMonth)?;
+		let day = delta.day().ok_or(ConversionError::MissingDay)?;
 
-		let date = Date::new(
-			i16::try_from(year).map_err(|_| FromError::InvalidDateComponents)?,
-			i8::try_from(month).map_err(|_| FromError::InvalidDateComponents)?,
-			i8::try_from(day).map_err(|_| FromError::InvalidDateComponents)?,
-		)
-		.map_err(|_| FromError::InvalidDateComponents)?;
-		let time = anchor_time(&delta, Time::midnight()).ok_or(FromError::InvalidTimeComponents)?;
+		let year = i16::try_from(year).map_err(|_| ConversionError::InvalidDate)?;
+		let month = i8::try_from(month).map_err(|_| ConversionError::InvalidDate)?;
+		let day = i8::try_from(day).map_err(|_| ConversionError::InvalidDate)?;
+		let date = Date::new(year, month, day).map_err(|_| ConversionError::InvalidDate)?;
+		let time = anchor_time(&delta, Time::midnight()).ok_or(ConversionError::InvalidTime)?;
 		Ok(date.to_datetime(time))
 	}
 }
@@ -198,17 +206,17 @@ mod tests {
 	#[test]
 	fn test_try_from() -> anyhow::Result<()> {
 		let delta = RelativeDelta::with_year(2020)
-			.and_month(Some(4))
-			.and_day(Some(28))
-			.and_hour(Some(12))
-			.and_minute(Some(35))
-			.and_second(Some(48))
+			.and_month(4)
+			.and_day(28)
+			.and_hour(12)
+			.and_minute(35)
+			.and_second(48)
 			.build();
 		assert_eq!(DateTime::try_from(delta)?, start());
 
 		let date_only = RelativeDelta::with_year(2020)
-			.and_month(Some(4))
-			.and_day(Some(28))
+			.and_month(4)
+			.and_day(28)
 			.build();
 		assert_eq!(
 			DateTime::try_from(date_only)?,
@@ -219,8 +227,8 @@ mod tests {
 		assert!(
 			DateTime::try_from(
 				RelativeDelta::with_year(20_000)
-					.and_month(Some(1))
-					.and_day(Some(1))
+					.and_month(1)
+					.and_day(1)
 					.build()
 			)
 			.is_err()
@@ -271,5 +279,16 @@ mod tests {
 			.to_zoned_datetime(new_york())
 			.unwrap();
 		assert_eq!(noon + RelativeDelta::with_days(1).build(), expected);
+	}
+
+	#[test]
+	fn test_weekday_from_jiff() {
+		let mut day = jiff::civil::Weekday::Monday;
+		for _ in 0..7 {
+			let converted = crate::Weekday::from(day);
+			let expected = day.to_monday_zero_offset().unsigned_abs();
+			assert_eq!(converted.num_days_from_monday(), expected);
+			day = day.next();
+		}
 	}
 }

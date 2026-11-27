@@ -165,21 +165,52 @@ impl fmt::Display for Weekday {
 	}
 }
 
-/// Any weekday can be represented as an integer from 0 to 6, which equals to
-/// [`Weekday::num_days_from_monday`](#method.num_days_from_monday) in this implementation.
-/// Do not heavily depend on this though; use explicit methods whenever possible.
-impl From<u8> for Weekday {
-	fn from(value: u8) -> Self {
-		let value = value % 7; // Ensure the value is within 0-6
+/// The error returned when converting a number outside `0..=6` to a [`Weekday`].
+///
+/// The number it holds is the rejected input.
+///
+/// # Examples
+///
+/// ```
+/// use relativedelta::weekday::InvalidWeekday;
+/// use relativedelta::Weekday;
+///
+/// assert_eq!(Weekday::try_from(7), Err(InvalidWeekday(7)));
+/// let message = InvalidWeekday(7).to_string();
+/// assert_eq!(message, "7 is not a weekday number; expected 0 (Monday) through 6 (Sunday)");
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("{0} is not a weekday number; expected 0 (Monday) through 6 (Sunday)")]
+pub struct InvalidWeekday(pub u8);
+
+/// Converts the number of days from Monday, as [`Weekday::num_days_from_monday`] returns it.
+///
+/// # Errors
+///
+/// Returns [`InvalidWeekday`] for a number outside `0..=6`.
+///
+/// # Examples
+///
+/// ```
+/// use relativedelta::Weekday;
+///
+/// assert_eq!(Weekday::try_from(0), Ok(Weekday::Mon));
+/// assert_eq!(Weekday::try_from(6), Ok(Weekday::Sun));
+/// assert!(Weekday::try_from(7).is_err());
+/// ```
+impl TryFrom<u8> for Weekday {
+	type Error = InvalidWeekday;
+
+	fn try_from(value: u8) -> Result<Self, Self::Error> {
 		match value {
-			0 => Self::Mon,
-			1 => Self::Tue,
-			2 => Self::Wed,
-			3 => Self::Thu,
-			4 => Self::Fri,
-			5 => Self::Sat,
-			6 => Self::Sun,
-			_ => unreachable!(), // This case should never happen due to the modulo operation
+			0 => Ok(Self::Mon),
+			1 => Ok(Self::Tue),
+			2 => Ok(Self::Wed),
+			3 => Ok(Self::Thu),
+			4 => Ok(Self::Fri),
+			5 => Ok(Self::Sat),
+			6 => Ok(Self::Sun),
+			_ => Err(InvalidWeekday(value)),
 		}
 	}
 }
@@ -248,7 +279,7 @@ mod tests {
 	#[test]
 	fn test_days_since() {
 		for i in 0..7 {
-			let base_day = Weekday::from(i);
+			let base_day = Weekday::try_from(i).unwrap();
 
 			assert_eq!(
 				base_day.num_days_from_monday(),
@@ -354,9 +385,16 @@ mod tests {
 	}
 
 	#[test]
+	fn test_try_from_rejects_numbers_past_sunday() {
+		for value in 7..=u8::MAX {
+			assert_eq!(Weekday::try_from(value), Err(InvalidWeekday(value)));
+		}
+	}
+
+	#[test]
 	fn test_number_from_monday() {
 		for i in 0..7 {
-			let day = Weekday::from(i);
+			let day = Weekday::try_from(i).unwrap();
 			assert_eq!(day.number_from_monday(), i + 1);
 			assert_eq!(day.num_days_from_monday(), i);
 		}
