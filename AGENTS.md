@@ -76,7 +76,8 @@ Treat every repo as if it will be open-sourced: a skeptical senior engineer revi
    dependency. Current, supported runtimes.
 7. **Cross-cutting concerns stay at the edges.** Tracing, caching and observability never shape the
    core data flow.
-8. **Readable as a story.** Intent-revealing names, functional style where it reads clearer, small
+8. **Readable as a story.** Intent-revealing names, named intermediate results over nested calls
+   (one step per line, each visible in a debugger), functional style where it reads clearer, small
    functions, comments only for the non-obvious why, actionable error context naming the runtime
    identifiers involved.
 9. **Measure before optimising.** Benchmark first, one change at a time, report what caused each gain.
