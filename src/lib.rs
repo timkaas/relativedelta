@@ -2,210 +2,77 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! > Rust implementation of `relativedelta` known from Python's [dateutil](https://pypi.org/project/python-dateutil/) library. Calculate dates by adding relative and offset values to a datetime instance. Currently, the [time](https://crates.io/crates/time), [chrono](https://crates.io/crates/chrono) and [jiff](https://crates.io/crates/jiff) crates are supported.
+//! Date rules as values, in the style of Python's
+//! [`dateutil.relativedelta`](https://dateutil.readthedocs.io/en/stable/relativedelta.html).
 //!
-//! ## Usage
+//! A [`RelativeDelta`] **sets** some fields of a date and **shifts** others: "the 1st of next
+//! month", "the last day of March", "the second Tuesday a year from now". The same rule applies to
+//! the date and date-time types of [jiff](https://docs.rs/jiff), [time](https://docs.rs/time) and
+//! [chrono](https://docs.rs/chrono).
 //!
-//! Run `cargo add relativedelta` to add this crate to your project or put this in your `Cargo.toml`:
+//! # Concepts
 //!
-//! ```toml
-//! [dependencies]
-//! relativedelta = { version = "0.3", features = ["chrono"] }
+//! - **Absolute fields** (`year`, `month`, `day`, `hour`, `minute`, `second`, `nanosecond`) replace
+//!   the matching field of a date. Set them with [`RelativeDelta::with_day`],
+//!   [`Builder::and_day`](relativedelta::Builder::and_day) and their siblings.
+//! - **Relative fields** (`years`, `months`, `days`, ...) shift a date. Months are calendar months:
+//!   a day that does not exist in the resulting month becomes that month's last day.
+//! - **A weekday** with an `nth` moves the result to that occurrence of the [`Weekday`], counting
+//!   the date itself.
+//!
+//! Adding a rule to a date applies the absolute fields, then years and months, then days through
+//! nanoseconds as an exact duration, then the weekday. [`RelativeDelta::checked_add`] does the same
+//! for any [`Shift`] type and returns `None` when the result is out of range; the `+` and `-`
+//! operators panic instead.
+//!
+//! # Quick start
+//!
 //! ```
+//! use relativedelta::{RelativeDelta, Weekday};
 //!
-//! ### Minimum Supported Rust Version (MSRV)
+//! // Set the month to March and the day to the 1st, add a month, subtract a day.
+//! let end_of_march = RelativeDelta::with_month(3).and_day(1).and_months(1).and_days(-1).build();
+//! assert_eq!(end_of_march.month(), Some(3));
+//! assert_eq!(end_of_march.days(), -1);
 //!
-//! The minimum supported Rust version is the `rust-version` in `Cargo.toml`, which crates.io and
-//! docs.rs also show.
-//!
-//! ### Optional features
-//!
-//! - **chrono**: Enable support for the [chrono](https://crates.io/crates/chrono) crate.
-//! - **time**: Enable support for the [time](https://crates.io/crates/time) crate.
-//! - **jiff**: Enable support for the [jiff](https://crates.io/crates/jiff) crate.
-//! - **serde**: Enable serialization/deserialization via [serde](https://crates.io/crates/serde).
-//!
-//! ## Overview
-//!
-//! The `RelativeDelta` datatype holds both relative and absolute values for *year*, *month*, *day*, *hour*, *minute*,
-//! *second* and
-//! *nanosecond*.
-//!
-//! Relative parts are manipulated and accessed through methods typically ending in "*s*" (e.g. `::with_years`,
-//! `.and_days`).
-//! Absolute values without "*s*" (e.g. `::with_year`, `.and_day`).
-//!
-//! All relative values represent an offset to date and time and therefore can take on both positive and negative values,
-//! and can take on any value within its datatypes limitations. On construction, a **Builder** will attempt to aggregate
-//! values
-//! up, so e.g. if *hours* are not in the range \[-23;23]\, the final instance will be updated to instead add or subtract
-//! extra
-//! *days*, with only the remainder as *hours*.
-//! All offsets are set to zero as default.
-//!
-//! Absolute values represent an explicit *year*, *month*, *day* and so on. So if one e.g. always seeks a certain day in a
-//! month, one would use the `::with_day()` or `.and_day()` method. All absolute values are **Options** and defaults to
-//! `None`.
-//!
-//! `RelativeDelta` also holds a weekday value, which is an Option of a tuple with `(Weekday, nth)`. This allows one to e.g.
-//! ask for the second tuesday one year from today,
-//! with `Utc::now() + RelativeDelta::with_years(1).and_weekday(Weekday::Tue, 2).build()`.
-//!
-//! ### Examples
-//!
-//! Here are some examples of how to use the `RelativeDelta` library:
-//!
-//! #### Basic Construction
-//!
-//! Create a `RelativeDelta` representing 1 year:
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! let years1 = RelativeDelta::with_years(1).build();
+//! let second_tuesday = RelativeDelta::with_months(1).and_day(1).and_weekday((Weekday::Tue, 2)).build();
+//! assert_eq!(second_tuesday.weekday(), Some((Weekday::Tue, 2)));
 //! ```
-//!
-//! Create a `RelativeDelta` representing 12 months (equivalent to 1 year):
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! let months12 = RelativeDelta::with_months(12).build();
-//! ```
-//!
-//! Combining relative values:
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! let one_year_32_days = RelativeDelta::with_years(1).and_days(32).build();
-//! ```
-//!
-//! If the same parameter is specified twice, only the latest is applied:
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! let months6 = RelativeDelta::with_months(12).and_months(6).build();
-//! ```
-//!
-//! Combining absolute and relative values:
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! // Set year to 2020, add 1 year, set month to January, add 3 months, add 12 days
-//! let complex = RelativeDelta::with_year(2020)
-//! .and_years(1)
-//! .and_month(1)
-//! .and_months(3)
-//! .and_days(12)
-//! .build();
-//! ```
-//!
-//! #### Operations Between `RelativeDelta` Instances
-//!
-//! Addition and subtraction (note that absolute values are lost in these operations):
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! let delta1 = RelativeDelta::with_years( - 4).and_months(3).build();
-//! let delta2 = RelativeDelta::with_years(1).and_months(42).build();
-//!
-//! // Addition
-//! let sum = delta1 + delta2; // RelativeDelta::with_years(-3).and_months(45).build()
-//!
-//! // Subtraction
-//! let diff = delta1 - delta2; // RelativeDelta::with_years(-5).and_months(-39).build()
-//!
-//! // Negation and addition
-//! let neg_sum = - delta1 + delta2; // RelativeDelta::with_years(5).and_months(39).build()
-//! ```
-//!
-//! Multiplication with a float:
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! let delta = RelativeDelta::with_years(4).and_months(6).build();
-//! let half = delta * 0.5; // RelativeDelta::with_years(2).and_months(3).build()
-//! ```
-//!
-//! #### Modifying an Existing `RelativeDelta`
-//!
-//! Use the `.builder()` method to create a Builder from an existing `RelativeDelta`:
-//!
-//! ```rust
-//! # use relativedelta::RelativeDelta;
-//! let original = RelativeDelta::with_years(1).build();
-//! let modified = original.builder().and_months(6).and_days( - 5).build();
-//! ```
-//!
-//! #### Using `RelativeDelta` with Datetime Libraries
-#![cfg_attr(
-	all(feature = "chrono", feature = "std"),
-	doc = r"
-With the chrono crate (requires the **chrono** feature):
-```
-# use relativedelta::{RelativeDelta, Weekday};
-use chrono;
-// Get the last day of the current month
-let last_day_of_month = chrono::Utc::now() + RelativeDelta::with_day(1)
-.and_months(1)
-.and_days(-1)
-.build();
-// Get the first Monday after one year from a specific date
-let first_monday_after_one_year = chrono::Utc::now() + RelativeDelta::with_years(1)
-.and_weekday((Weekday::Mon, 1))
-.build();
-```
-"
-)]
-#![cfg_attr(
-	all(feature = "time", feature = "std"),
-	doc = r"
-With the time crate (requires the **time** feature):
-
-```
-# use relativedelta::RelativeDelta;
-use time;
-// Add 1 year, 3 months, and 15 days to a date
-let delta = RelativeDelta::with_years(1).and_months(3).and_days(15).build();
-let result = time::UtcDateTime::now() + delta;
-// Get the last day of a month
-let last_day = time::UtcDateTime::now() + RelativeDelta::with_day(1)
-.and_months(1)
-.and_days(-1)
-.build();
-```
-"
-)]
 #![cfg_attr(
 	feature = "jiff",
 	doc = r"
-With the jiff crate (requires the **jiff** feature):
+Applied to a date, here with the `jiff` feature:
 
 ```
-# use relativedelta::{RelativeDelta, Weekday};
 use jiff::civil::date;
-// Get the last day of the month
-let last_day_of_month = date(2024, 2, 10) + RelativeDelta::with_day(1)
-.and_months(1)
-.and_days(-1)
-.build();
-assert_eq!(last_day_of_month, date(2024, 2, 29));
-// Get the first Monday after one year from a specific date
-let first_monday_after_one_year = date(2024, 2, 10) + RelativeDelta::with_years(1)
-.and_weekday((Weekday::Mon, 1))
-.build();
-assert_eq!(first_monday_after_one_year, date(2025, 2, 10));
+use relativedelta::RelativeDelta;
+
+let end_of_march = RelativeDelta::with_month(3).and_day(1).and_months(1).and_days(-1).build();
+assert_eq!(date(2024, 7, 15) + end_of_march, date(2024, 3, 31));
+let one_day = RelativeDelta::with_days(1).build();
+assert_eq!(one_day.checked_add(&jiff::civil::Date::MAX), None);
 ```
 "
 )]
-//! #### Working with Weekdays
+//! # Modules
 //!
-//! Get the 3rd Tuesday of next month:
+//! - [`relativedelta`]: [`RelativeDelta`], its [`Builder`](relativedelta::Builder) and the
+//!   arithmetic between rules.
+//! - [`weekday`]: [`Weekday`] and its conversions.
 //!
-//! ```rust
-//! # use relativedelta::{RelativeDelta, Weekday};
-//! let third_tuesday_next_month = RelativeDelta::with_months(1)
-//! .and_weekday((Weekday::Tue, 3))
-//! .build();
-//! ```
+//! # Feature flags
+//!
+//! None is enabled by default. Without a backend the crate builds and combines rules.
+//!
+//! - `jiff`: `civil::Date`, `civil::DateTime`, `Timestamp` and `ZonedDateTime`.
+//! - `time`: `Date`, `PrimitiveDateTime`, `OffsetDateTime` and `UtcDateTime`.
+//! - `chrono`: `NaiveDate`, `NaiveDateTime` and `DateTime<Tz>`.
+//! - `serde`: serializing and deserializing rules; turns on `std`.
+//! - `schemars`: a JSON schema for rules; turns on `std`.
+//! - `std`: the standard library. Without it the crate is `no_std` and needs no allocator.
+//!
+//! The minimum supported Rust version is the `rust-version` in `Cargo.toml`. It is raised only in a
+//! minor release, when a newer Rust feature earns it.
 
 #![deny(missing_docs)]
 #![deny(clippy::all)]
@@ -321,4 +188,10 @@ mod markdown_doctests {
 
 	#[doc = include_str!("../docs/vs-duration.md")]
 	struct VsDuration;
+
+	#[doc = include_str!("../docs/migrating-to-1.0.md")]
+	struct MigratingTo1;
+
+	#[doc = include_str!("../docs/from-chronoutil.md")]
+	struct FromChronoutil;
 }
