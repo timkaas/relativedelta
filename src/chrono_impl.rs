@@ -141,33 +141,35 @@ impl<Tz: chrono::TimeZone> CheckedAddDuration for chrono::DateTime<Tz> {
 }
 
 impl RelativeDelta {
-	fn time_duration(&self) -> chrono::TimeDelta {
-		chrono::Duration::days(self.days())
-			+ chrono::Duration::hours(self.hours())
-			+ chrono::Duration::minutes(self.minutes())
-			+ chrono::Duration::seconds(self.seconds())
-			+ chrono::Duration::nanoseconds(self.nanoseconds())
+	/// Returns the days through nanoseconds as one exact duration, or `None` on overflow.
+	fn time_duration(&self) -> Option<chrono::TimeDelta> {
+		chrono::TimeDelta::try_days(self.days())?
+			.checked_add(&chrono::TimeDelta::try_hours(self.hours())?)?
+			.checked_add(&chrono::TimeDelta::try_minutes(self.minutes())?)?
+			.checked_add(&chrono::TimeDelta::try_seconds(self.seconds())?)?
+			.checked_add(&chrono::TimeDelta::nanoseconds(self.nanoseconds()))
 	}
 
 	/// Calculates the adjusted year, month, and day from a `RelativeDelta` and source date
-	#[allow(clippy::cast_possible_truncation)]
-	#[allow(clippy::cast_sign_loss)]
 	fn date_components<D: Datelike>(&self, source: &D) -> Option<DateComponents> {
-		let mut year = self.year().unwrap_or(source.year().into()) + self.years();
-		let month = self.month().map_or(source.month().into(), MonthsType::from) + self.months();
-		let (mut extra_years, mut relative_month) = month.div_rem(&12);
-		if relative_month <= 0 {
-			extra_years -= 1;
-			relative_month += 12;
-		}
-		year += extra_years;
+		let year = self
+			.year()
+			.unwrap_or(source.year().into())
+			.checked_add(self.years())?;
+		let month = self
+			.month()
+			.map_or(source.month().into(), MonthsType::from)
+			.checked_add(self.months())?;
+		let (extra_years, month_offset) = (month - 1).div_mod_floor(&12);
+		let year = year.checked_add(extra_years)?;
+		let month = MonthType::try_from(month_offset + 1).ok()?;
 
-		let num_days_in_month = u32::from(num_days_in_month(year, relative_month as MonthType));
-		let day = num_days_in_month.min(self.day().map_or(source.day(), u32::from));
+		let day =
+			u32::from(num_days_in_month(year, month)).min(self.day().map_or(source.day(), u32::from));
 
 		Some(DateComponents {
 			year: year.try_into().ok()?,
-			month: relative_month as u32,
+			month: month.into(),
 			day,
 		})
 	}
@@ -242,7 +244,7 @@ impl RelativeDelta {
 			.single()
 			.and_then(|d| d.with_nanosecond(nanosecond))?;
 
-		let ret = datetime.checked_add_signed(self.time_duration())?;
+		let ret = datetime.checked_add_signed(self.time_duration()?)?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
@@ -376,7 +378,7 @@ impl RelativeDelta {
 		let datetime = chrono::NaiveDate::from_ymd_opt(year, month, day)?
 			.and_hms_nano_opt(hour, minute, second, nanosecond)?;
 
-		let ret = datetime.checked_add_signed(self.time_duration())?;
+		let ret = datetime.checked_add_signed(self.time_duration()?)?;
 
 		self.apply_weekday_adjustment(ret)
 	}
@@ -408,7 +410,7 @@ impl RelativeDelta {
 
 		let date = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
 
-		let ret = date.checked_add_signed(chrono::Duration::days(self.days()))?;
+		let ret = date.checked_add_signed(chrono::TimeDelta::try_days(self.days())?)?;
 		self.apply_weekday_adjustment(ret)
 	}
 }
