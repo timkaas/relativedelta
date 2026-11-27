@@ -81,8 +81,7 @@ The release candidate for 1.0. The repository moved to
 ## [0.3.0] - 2025-08-06
 
 Added the `time` backend and put chrono behind the `chrono` feature, replaced `Builder::new` with
-`build`, renamed the `serde1` feature to `serde`, and moved to edition 2024. See the
-[0.2 to 0.3 migration guide](docs/migrating-to-0.3.md).
+`build`, renamed the `serde1` feature to `serde`, and moved to edition 2024.
 
 ## [0.2.2] - 2020-08-27
 
