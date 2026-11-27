@@ -2,14 +2,14 @@
 name = "relativedelta"
 version = "0.0.0-replace-me"
 readme = "README.md"
-description = "Complex date arithmetic: add/subtract months and years without errors, target weekdays, lock dates. Better than Duration for semantic calendar operations."
-keywords = ["datetime", "relative", "deltatime", "calendar", "date-arithmetic"]
+description = "Date rules as values, like Python's dateutil.relativedelta: set and shift dates by calendar months, years and weekdays, for jiff, time and chrono."
+keywords = ["dateutil", "calendar", "date-arithmetic", "jiff", "chrono"]
 edition = "2024"
 rust-version = "1.88.0"
 license = "MPL-2.0"
 repository = "https://github.com/LunaPinc/relativedelta"
 documentation = "https://docs.rs/relativedelta"
-categories = ["date-and-time"]
+categories = ["date-and-time", "no-std", "no-std::no-alloc"]
 
 [lib]
 name = "relativedelta"
